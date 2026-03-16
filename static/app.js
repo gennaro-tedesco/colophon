@@ -303,8 +303,8 @@
 		const inner = document.createElement('div');
 		inner.className = 'book-row-preview-inner';
 
-		const metaPanel = document.createElement('div');
-		metaPanel.className = 'book-row-meta-panel';
+			const metaPanel = document.createElement('div');
+			metaPanel.className = 'book-row-meta-panel';
 
 		[
 			{ label: 'Language', value: book.language || '' },
@@ -315,11 +315,11 @@
 			const r = document.createElement('div');
 			r.className = 'book-row-meta-row';
 			r.innerHTML = `<span class="book-row-meta-label">${label}</span><span class="book-row-meta-value">${value}</span>`;
-			metaPanel.appendChild(r);
-		});
+				metaPanel.appendChild(r);
+			});
 
-		inner.appendChild(metaPanel);
-		preview.appendChild(inner);
+			inner.appendChild(metaPanel);
+			preview.appendChild(inner);
 		row.appendChild(header);
 		row.appendChild(preview);
 
