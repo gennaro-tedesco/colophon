@@ -74,7 +74,7 @@ body {
 
 .sidebar-header h1 {
   font-family: var(--font-serif);
-  font-size: 18px;
+  font-size: 22px;
   font-weight: 400;
   letter-spacing: 0.04em;
   color: var(--text);
@@ -98,7 +98,7 @@ body {
   cursor: pointer;
   user-select: none;
   color: var(--overlay1);
-  font-size: 10px;
+  font-size: 14px;
   font-weight: 500;
   letter-spacing: 0.12em;
   text-transform: uppercase;
@@ -108,7 +108,7 @@ body {
 .group-header:hover { color: var(--mauve); }
 
 .group-chevron {
-  font-size: 9px;
+  font-size: 14px;
   transition: transform 0.2s;
 }
 
@@ -128,7 +128,7 @@ body {
   padding: 6px 20px 6px 28px;
   cursor: pointer;
   color: var(--subtext0);
-  font-size: 12.5px;
+  font-size: 14px;
   transition: color 0.12s, background 0.12s;
   border-left: 2px solid transparent;
 }
@@ -146,7 +146,7 @@ body {
 
 .group-item-count {
   font-family: var(--font-mono);
-  font-size: 10px;
+  font-size: 14px;
   color: var(--overlay0);
   background: var(--surface0);
   padding: 1px 5px;
@@ -162,7 +162,7 @@ body {
   padding: 8px 20px;
   cursor: pointer;
   color: var(--subtext0);
-  font-size: 11px;
+  font-size: 14px;
   letter-spacing: 0.05em;
   transition: color 0.12s;
   border-bottom: 1px solid var(--surface0);
@@ -329,7 +329,7 @@ body {
 
 .book-title {
   font-family: var(--font-serif);
-  font-size: 12px;
+  font-size: 16px;
   line-height: 1.35;
   color: var(--text);
   display: -webkit-box;
@@ -359,7 +359,7 @@ body {
 
 .back-title {
   font-family: var(--font-serif);
-  font-size: 12px;
+  font-size: 16px;
   font-style: italic;
   color: var(--mauve);
   line-height: 1.35;
@@ -375,14 +375,14 @@ body {
 
 .back-label {
   font-family: var(--font-mono);
-  font-size: 9px;
+  font-size: 14px;
   letter-spacing: 0.1em;
   text-transform: uppercase;
   color: var(--overlay0);
 }
 
 .back-value {
-  font-size: 11px;
+  font-size: 16px;
   color: var(--text);
   line-height: 1.4;
   word-break: break-word;

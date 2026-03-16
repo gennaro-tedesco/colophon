@@ -244,7 +244,13 @@
     card.appendChild(back);
     wrapper.appendChild(card);
 
-    wrapper.addEventListener('click', () => wrapper.classList.toggle('flipped'));
+	  wrapper.addEventListener('click', () => {
+  const wasFlipped = wrapper.classList.toggle('flipped');
+  clearTimeout(wrapper._flipTimer);
+  if (wasFlipped) {
+    wrapper._flipTimer = setTimeout(() => wrapper.classList.remove('flipped'), 5000);
+  }
+});
 
     return wrapper;
   }
