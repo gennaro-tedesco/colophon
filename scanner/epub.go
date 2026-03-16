@@ -21,9 +21,12 @@ type opfPackage struct {
 		Creators  []string `xml:"creator"`
 		Languages []string `xml:"language"`
 		Subjects  []string `xml:"subject"`
-		Metas     []struct {
-			Name    string `xml:"name,attr"`
-			Content string `xml:"content,attr"`
+		Metas []struct {
+			Name     string `xml:"name,attr"`
+			Content  string `xml:"content,attr"`
+			Property string `xml:"property,attr"`
+			Refines  string `xml:"refines,attr"`
+			Value    string `xml:",chardata"`
 		} `xml:"meta"`
 	} `xml:"metadata"`
 	Manifest struct {
@@ -86,14 +89,23 @@ func parseEpub(path string) (title, language, series, coverPath string, authors,
 	}
 	tags = splitSubjects(pkg.Metadata.Subjects)
 
+	var calibreSeries, collectionSeries string
 	coverItemID := ""
 	for _, m := range pkg.Metadata.Metas {
 		switch m.Name {
 		case "calibre:series":
-			series = strings.TrimSpace(m.Content)
+			calibreSeries = strings.TrimSpace(m.Content)
 		case "cover":
 			coverItemID = strings.TrimSpace(m.Content)
 		}
+		if m.Property == "belongs-to-collection" && m.Refines == "" {
+			collectionSeries = strings.TrimSpace(m.Value)
+		}
+	}
+	if calibreSeries != "" {
+		series = calibreSeries
+	} else {
+		series = collectionSeries
 	}
 
 	coverPath = findCoverPath(pkg, opfDir, coverItemID)
