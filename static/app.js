@@ -84,12 +84,13 @@
 			});
 		});
 
+		const sortFn = (a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' });
 		return {
 			groups: {
-				language: Array.from(groups.language).sort(),
-				series: Array.from(groups.series).sort(),
-				tags: Array.from(groups.tags).sort(),
-				author: Array.from(groups.author).sort(),
+				language: Array.from(groups.language).sort(sortFn),
+				series: Array.from(groups.series).sort(sortFn),
+				tags: Array.from(groups.tags).sort(sortFn),
+				author: Array.from(groups.author).sort(sortFn),
 			},
 			counts,
 		};
