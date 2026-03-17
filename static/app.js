@@ -1,7 +1,11 @@
 (function() {
 	let allBooks = [];
+	let navGroups = { language: [], series: [], tags: [], author: [] };
+	let navCounts = { language: {}, series: {}, tags: {}, author: {} };
 	let activeFilters = createEmptyFilters();
-	let currentRows = [];
+
+	const navRefs = { language: new Map(), series: new Map(), tags: new Map(), author: new Map() };
+	const sectionRefs = new Map();
 
 	const nav = document.getElementById('nav');
 	const list = document.getElementById('list');
@@ -21,7 +25,10 @@
 		.then(r => r.json())
 		.then(lib => {
 			allBooks = lib.books || [];
-			renderNav(lib.groups || {});
+			const data = buildGroupData(allBooks);
+			navGroups = data.groups;
+			navCounts = data.counts;
+			renderNav();
 			renderFiltered();
 		})
 		.catch(() => {
@@ -39,15 +46,11 @@
 		search.focus();
 		renderFiltered();
 	});
-	logo.addEventListener('click', clearFilters);
 
+	logo.addEventListener('click', clearFilters);
 	modalClose.addEventListener('click', closeModal);
 	backdrop.addEventListener('click', e => { if (e.target === backdrop) closeModal(); });
 	document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
-
-	function closeModal() {
-		backdrop.classList.remove('open');
-	}
 
 	function createEmptyFilters() {
 		return {
@@ -58,53 +61,72 @@
 		};
 	}
 
+	function buildGroupData(books) {
+		const groups = { language: new Set(), series: new Set(), tags: new Set(), author: new Set() };
+		const counts = { language: {}, series: {}, tags: {}, author: {} };
+
+		books.forEach(book => {
+			if (book.language) {
+				groups.language.add(book.language);
+				counts.language[book.language] = (counts.language[book.language] || 0) + 1;
+			}
+			if (book.series) {
+				groups.series.add(book.series);
+				counts.series[book.series] = (counts.series[book.series] || 0) + 1;
+			}
+			(book.tags || []).forEach(tag => {
+				groups.tags.add(tag);
+				counts.tags[tag] = (counts.tags[tag] || 0) + 1;
+			});
+			(book.authors || []).forEach(author => {
+				groups.author.add(author);
+				counts.author[author] = (counts.author[author] || 0) + 1;
+			});
+		});
+
+		return {
+			groups: {
+				language: Array.from(groups.language).sort(),
+				series: Array.from(groups.series).sort(),
+				tags: Array.from(groups.tags).sort(),
+				author: Array.from(groups.author).sort(),
+			},
+			counts,
+		};
+	}
+
 	function hasActiveFilters() {
 		return Object.values(activeFilters).some(values => values.size > 0);
 	}
 
 	function hasActiveFilterGroup(type) {
-		return activeFilters[type] && activeFilters[type].size > 0;
+		return activeFilters[type].size > 0;
 	}
 
 	function isFilterActive(type, value) {
-		return Boolean(activeFilters[type] && activeFilters[type].has(value));
+		return activeFilters[type].has(value);
 	}
 
 	function clearFilters() {
 		activeFilters = createEmptyFilters();
 		search.value = '';
 		searchClear.classList.remove('visible');
-		renderNav(buildGroups());
+		updateNavState();
 		renderFiltered();
 	}
 
 	function applyFilter(type, value) {
-		if (!activeFilters[type]) return;
 		if (activeFilters[type].has(value)) {
 			activeFilters[type].delete(value);
 		} else {
 			activeFilters[type].add(value);
 		}
-		renderNav(buildGroups());
+		updateNavState();
 		renderFiltered();
 	}
 
-	function buildGroups() {
-		const groups = { language: new Set(), series: new Set(), tags: new Set(), author: new Set() };
-
-		allBooks.forEach(book => {
-			if (book.language) groups.language.add(book.language);
-			if (book.series) groups.series.add(book.series);
-			(book.tags || []).forEach(tag => groups.tags.add(tag));
-			(book.authors || []).forEach(author => groups.author.add(author));
-		});
-
-		return {
-			language: Array.from(groups.language).sort(),
-			series: Array.from(groups.series).sort(),
-			tags: Array.from(groups.tags).sort(),
-			author: Array.from(groups.author).sort(),
-		};
+	function closeModal() {
+		backdrop.classList.remove('open');
 	}
 
 	function openModal(book) {
@@ -150,23 +172,24 @@
 		backdrop.classList.add('open');
 	}
 
-	function renderNav(groups) {
+	function renderNav() {
 		nav.innerHTML = '';
+		Object.values(navRefs).forEach(group => group.clear());
+		sectionRefs.clear();
+
 		const allEl = document.createElement('div');
-		allEl.className = hasActiveFilters() ? 'all-item' : 'all-item active';
+		allEl.className = 'all-item';
 		allEl.innerHTML = `<span>All books</span><span class="group-item-count">${allBooks.length}</span>`;
 		allEl.addEventListener('click', clearFilters);
 		nav.appendChild(allEl);
+		sectionRefs.set('all', allEl);
 
 		['author', 'language', 'series', 'tags'].forEach(key => {
-			const values = groups[key];
+			const values = navGroups[key];
 			if (!values || values.length === 0) return;
 
 			const section = document.createElement('div');
 			section.className = 'group-section';
-			if (hasActiveFilterGroup(key)) {
-				section.classList.add('open');
-			}
 			let hoverTimer = null;
 
 			const header = document.createElement('div');
@@ -189,19 +212,44 @@
 			const itemsInner = document.createElement('div');
 			itemsInner.className = 'group-items-inner';
 
-			values.forEach(val => {
-				const bookCount = allBooks.filter(b => matchFilter(b, key, val)).length;
+			values.forEach(value => {
 				const item = document.createElement('div');
-				item.className = isFilterActive(key, val) ? 'group-item active' : 'group-item';
-				item.innerHTML = `<span>${val}</span><span class="group-item-count">${bookCount}</span>`;
-				item.addEventListener('click', () => applyFilter(key, val));
+				item.className = 'group-item';
+				item.innerHTML = `<span>${value}</span><span class="group-item-count">${navCounts[key][value] || 0}</span>`;
+				item.addEventListener('click', () => applyFilter(key, value));
 				itemsInner.appendChild(item);
+				navRefs[key].set(value, item);
 			});
 
 			items.appendChild(itemsInner);
 			section.appendChild(header);
 			section.appendChild(items);
 			nav.appendChild(section);
+			sectionRefs.set(key, section);
+		});
+
+		updateNavState();
+	}
+
+	function updateNavState() {
+		const allEl = sectionRefs.get('all');
+		if (allEl) {
+			allEl.classList.toggle('active', !hasActiveFilters());
+		}
+
+		['author', 'language', 'series', 'tags'].forEach(type => {
+			const section = sectionRefs.get(type);
+			if (section) {
+				if (hasActiveFilterGroup(type)) {
+					section.classList.add('open');
+				} else {
+					section.classList.remove('open');
+				}
+			}
+
+			navRefs[type].forEach((item, value) => {
+				item.classList.toggle('active', isFilterActive(type, value));
+			});
 		});
 	}
 
@@ -217,22 +265,27 @@
 
 	function filterBooks() {
 		const q = search.value.trim().toLowerCase();
-		return allBooks.filter(b => {
+
+		return allBooks.filter(book => {
 			for (const [type, values] of Object.entries(activeFilters)) {
 				if (values.size === 0) continue;
+
 				let matchesGroup = false;
 				for (const value of values) {
-					if (matchFilter(b, type, value)) {
+					if (matchFilter(book, type, value)) {
 						matchesGroup = true;
 						break;
 					}
 				}
+
 				if (!matchesGroup) return false;
 			}
+
 			if (q) {
-				const haystack = [b.title || '', ...(b.authors || []), b.series || '', ...(b.tags || []), b.language || ''].join(' ').toLowerCase();
+				const haystack = [book.title || '', ...(book.authors || []), book.series || '', ...(book.tags || []), book.language || ''].join(' ').toLowerCase();
 				if (!haystack.includes(q)) return false;
 			}
+
 			return true;
 		});
 	}
@@ -240,37 +293,21 @@
 	function renderFiltered() {
 		const filtered = filterBooks();
 		count.textContent = `${filtered.length}/${allBooks.length}`;
+		list.innerHTML = '';
 
-		const incoming = new Set(filtered.map(b => b.path));
-		currentRows.forEach(row => {
-			row.style.display = incoming.has(row.dataset.path) ? '' : 'none';
-		});
-
-		const existingPaths = new Set(currentRows.map(r => r.dataset.path));
-		const toAdd = filtered.filter(b => !existingPaths.has(b.path));
-
-		if (toAdd.length > 0) {
-			const frag = document.createDocumentFragment();
-			toAdd.forEach(b => {
-				const row = bookRow(b);
-				frag.appendChild(row);
-				currentRows.push(row);
-			});
-			list.appendChild(frag);
-		}
-
-		let emptyEl = list.querySelector('.empty');
 		if (filtered.length === 0) {
-			if (!emptyEl) {
-				emptyEl = document.createElement('div');
-				emptyEl.className = 'empty';
-				emptyEl.textContent = 'no books found';
-				list.appendChild(emptyEl);
-			}
-			emptyEl.style.display = '';
-		} else if (emptyEl) {
-			emptyEl.style.display = 'none';
+			const emptyEl = document.createElement('div');
+			emptyEl.className = 'empty';
+			emptyEl.textContent = 'no books found';
+			list.appendChild(emptyEl);
+			return;
 		}
+
+		const frag = document.createDocumentFragment();
+		filtered.forEach(book => {
+			frag.appendChild(bookRow(book));
+		});
+		list.appendChild(frag);
 	}
 
 	function bookRow(book) {
@@ -336,8 +373,8 @@
 		const inner = document.createElement('div');
 		inner.className = 'book-row-preview-inner';
 
-			const metaPanel = document.createElement('div');
-			metaPanel.className = 'book-row-meta-panel';
+		const metaPanel = document.createElement('div');
+		metaPanel.className = 'book-row-meta-panel';
 
 		[
 			{ label: 'Language', value: book.language || '' },
@@ -345,14 +382,14 @@
 			{ label: 'Tags', value: (book.tags || []).join(', ') },
 		].forEach(({ label, value }) => {
 			if (!value) return;
-			const r = document.createElement('div');
-			r.className = 'book-row-meta-row';
-			r.innerHTML = `<span class="book-row-meta-label">${label}</span><span class="book-row-meta-value">${value}</span>`;
-				metaPanel.appendChild(r);
-			});
+			const metaRow = document.createElement('div');
+			metaRow.className = 'book-row-meta-row';
+			metaRow.innerHTML = `<span class="book-row-meta-label">${label}</span><span class="book-row-meta-value">${value}</span>`;
+			metaPanel.appendChild(metaRow);
+		});
 
-			inner.appendChild(metaPanel);
-			preview.appendChild(inner);
+		inner.appendChild(metaPanel);
+		preview.appendChild(inner);
 		row.appendChild(header);
 		row.appendChild(preview);
 
