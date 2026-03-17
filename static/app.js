@@ -1,6 +1,6 @@
 (function() {
 	let allBooks = [];
-	let activeFilter = { type: null, value: null };
+	let activeFilters = createEmptyFilters();
 	let currentRows = [];
 
 	const nav = document.getElementById('nav');
@@ -49,8 +49,29 @@
 		backdrop.classList.remove('open');
 	}
 
+	function createEmptyFilters() {
+		return {
+			language: new Set(),
+			series: new Set(),
+			tags: new Set(),
+			author: new Set(),
+		};
+	}
+
+	function hasActiveFilters() {
+		return Object.values(activeFilters).some(values => values.size > 0);
+	}
+
+	function hasActiveFilterGroup(type) {
+		return activeFilters[type] && activeFilters[type].size > 0;
+	}
+
+	function isFilterActive(type, value) {
+		return Boolean(activeFilters[type] && activeFilters[type].has(value));
+	}
+
 	function clearFilters() {
-		activeFilter = { type: null, value: null };
+		activeFilters = createEmptyFilters();
 		search.value = '';
 		searchClear.classList.remove('visible');
 		renderNav(buildGroups());
@@ -58,7 +79,12 @@
 	}
 
 	function applyFilter(type, value) {
-		activeFilter = { type, value };
+		if (!activeFilters[type]) return;
+		if (activeFilters[type].has(value)) {
+			activeFilters[type].delete(value);
+		} else {
+			activeFilters[type].add(value);
+		}
 		renderNav(buildGroups());
 		renderFiltered();
 	}
@@ -127,7 +153,7 @@
 	function renderNav(groups) {
 		nav.innerHTML = '';
 		const allEl = document.createElement('div');
-		allEl.className = activeFilter.type ? 'all-item' : 'all-item active';
+		allEl.className = hasActiveFilters() ? 'all-item' : 'all-item active';
 		allEl.innerHTML = `<span>All books</span><span class="group-item-count">${allBooks.length}</span>`;
 		allEl.addEventListener('click', clearFilters);
 		nav.appendChild(allEl);
@@ -138,7 +164,7 @@
 
 			const section = document.createElement('div');
 			section.className = 'group-section';
-			if (activeFilter.type === key) {
+			if (hasActiveFilterGroup(key)) {
 				section.classList.add('open');
 			}
 			let hoverTimer = null;
@@ -166,7 +192,7 @@
 			values.forEach(val => {
 				const bookCount = allBooks.filter(b => matchFilter(b, key, val)).length;
 				const item = document.createElement('div');
-				item.className = activeFilter.type === key && activeFilter.value === val ? 'group-item active' : 'group-item';
+				item.className = isFilterActive(key, val) ? 'group-item active' : 'group-item';
 				item.innerHTML = `<span>${val}</span><span class="group-item-count">${bookCount}</span>`;
 				item.addEventListener('click', () => applyFilter(key, val));
 				itemsInner.appendChild(item);
@@ -189,15 +215,20 @@
 		}
 	}
 
-	function clearActive() {
-		nav.querySelectorAll('.active').forEach(el => el.classList.remove('active'));
-	}
-
 	function filterBooks() {
 		const q = search.value.trim().toLowerCase();
-		const { type, value } = activeFilter;
 		return allBooks.filter(b => {
-			if (type && !matchFilter(b, type, value)) return false;
+			for (const [type, values] of Object.entries(activeFilters)) {
+				if (values.size === 0) continue;
+				let matchesGroup = false;
+				for (const value of values) {
+					if (matchFilter(b, type, value)) {
+						matchesGroup = true;
+						break;
+					}
+				}
+				if (!matchesGroup) return false;
+			}
 			if (q) {
 				const haystack = [b.title || '', ...(b.authors || []), b.series || '', ...(b.tags || []), b.language || ''].join(' ').toLowerCase();
 				if (!haystack.includes(q)) return false;

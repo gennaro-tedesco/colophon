@@ -406,7 +406,7 @@ body {
 }
 
 #modal-cover {
-  width: 200px;
+  width: 50%;
   min-width: 140px;
   background: var(--surface0);
   display: flex;
