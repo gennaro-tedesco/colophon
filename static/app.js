@@ -167,7 +167,7 @@
 	function toggleView() {
 		if (currentView === 'library') {
 			currentView = 'stats';
-			viewToggle.textContent = 'Library';
+			viewToggle.textContent = '📚';
 			list.classList.add('hidden');
 			stats.classList.remove('hidden');
 			renderStatsView(filterBooks());
@@ -175,7 +175,7 @@
 		}
 
 		currentView = 'library';
-		viewToggle.textContent = 'Stats';
+		viewToggle.textContent = '📊';
 		closeDrilldownModal();
 		destroyCharts(statsCharts);
 		stats.innerHTML = '';

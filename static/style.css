@@ -551,13 +551,12 @@ body {
   border: 1px solid var(--surface1);
   border-radius: 4px;
   color: var(--text);
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 8px 12px;
+  font-size: 22px;
+  padding: 2px 6px;
   cursor: pointer;
   transition: border-color 0.15s, color 0.15s, background 0.15s;
+  align-self: center;
+  margin: 0 0 12px;
 }
 
 #view-toggle:hover {
