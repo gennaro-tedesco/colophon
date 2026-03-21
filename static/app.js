@@ -21,11 +21,6 @@
 	const activeFiltersEl = document.getElementById('active-filters');
 	const count = document.getElementById('count');
 	const viewToggle = document.getElementById('view-toggle');
-	const backdrop = document.getElementById('modal-backdrop');
-	const modalTitle = document.getElementById('modal-title');
-	const modalMeta = document.getElementById('modal-meta');
-	const modalCover = document.getElementById('modal-cover');
-	const modalClose = document.getElementById('modal-close');
 	const drilldownBackdrop = document.getElementById('drilldown-backdrop');
 	const drilldownTitle = document.getElementById('drilldown-title');
 	const drilldownBody = document.getElementById('drilldown-body');
@@ -62,20 +57,12 @@
 
 	viewToggle.addEventListener('click', toggleView);
 	logo.addEventListener('click', clearFilters);
-	modalClose.addEventListener('click', closeModal);
-	backdrop.addEventListener('click', event => {
-		if (event.target === backdrop) closeModal();
-	});
 	drilldownClose.addEventListener('click', closeDrilldownModal);
 	drilldownBackdrop.addEventListener('click', event => {
 		if (event.target === drilldownBackdrop) closeDrilldownModal();
 	});
 	document.addEventListener('keydown', event => {
 		if (event.key !== 'Escape') return;
-		if (backdrop.classList.contains('open')) {
-			closeModal();
-			return;
-		}
 		if (drilldownBackdrop.classList.contains('open')) {
 			closeDrilldownModal();
 		}
@@ -184,13 +171,6 @@
 		renderFiltered();
 	}
 
-	function closeModal() {
-		backdrop.classList.remove('open');
-		if (isDrilldownSuspended) {
-			resumeDrilldownModal();
-		}
-	}
-
 	function closeDrilldownModal() {
 		if (drilldownBaseFilters) {
 			activeFilters = cloneFilters(drilldownBaseFilters);
@@ -216,47 +196,12 @@
 		drilldownBackdrop.classList.remove('hidden');
 	}
 
-	function openModal(book) {
-		modalTitle.textContent = book.title || '—';
+	function encodeBookPath(path) {
+		return (path || '').split('/').map(encodeURIComponent).join('/');
+	}
 
-		let img = modalCover.querySelector('img');
-		const placeholder = document.getElementById('modal-cover-placeholder');
-
-		if (book.coverUrl) {
-			if (!img) {
-				img = document.createElement('img');
-				img.alt = '';
-				modalCover.appendChild(img);
-			}
-			img.src = book.coverUrl;
-			img.style.display = 'block';
-			img.onerror = () => {
-				img.style.display = 'none';
-				placeholder.textContent = (book.title || '?').charAt(0).toUpperCase();
-				placeholder.style.display = 'flex';
-			};
-			placeholder.style.display = 'none';
-		} else {
-			if (img) img.style.display = 'none';
-			placeholder.textContent = (book.title || '?').charAt(0).toUpperCase();
-			placeholder.style.display = 'flex';
-		}
-
-		modalMeta.innerHTML = '';
-		[
-			{ label: 'Author', value: (book.authors || []).join(', ') },
-			{ label: 'Language', value: book.language || '' },
-			{ label: 'Series', value: book.series || '' },
-			{ label: 'Tags', value: (book.tags || []).join(', ') },
-		].forEach(({ label, value }) => {
-			if (!value) return;
-			const row = document.createElement('div');
-			row.className = 'modal-row';
-			row.innerHTML = `<span class="modal-label">${label}</span><span class="modal-value">${value}</span>`;
-			modalMeta.appendChild(row);
-		});
-
-		backdrop.classList.add('open');
+	function openReader(book) {
+		window.location.href = `/read/${encodeBookPath(book.path)}?chapter=0`;
 	}
 
 	function renderDrilldownContent(sourceType, value, books) {
@@ -272,15 +217,15 @@
 		} else {
 			const results = document.createElement('div');
 			results.className = 'drilldown-results';
-			filteredBooks.forEach(book => {
-				results.appendChild(bookRow(book, {
-					disablePreview: true,
-					onOpen() {
-						suspendDrilldownModal();
-						openModal(book);
-					},
-				}));
-			});
+				filteredBooks.forEach(book => {
+					results.appendChild(bookRow(book, {
+						disablePreview: true,
+						onOpen() {
+							suspendDrilldownModal();
+							openReader(book);
+						},
+					}));
+				});
 			drilldownBody.appendChild(results);
 		}
 	}
@@ -756,27 +701,14 @@
 		row.appendChild(header);
 		row.appendChild(preview);
 
-		let hoverTimer = null;
-
-		if (options.disablePreview) {
-			row.classList.add('book-row-static');
-		} else {
-			row.addEventListener('mouseenter', () => {
-				hoverTimer = setTimeout(() => preview.classList.add('expanded'), 500);
-			});
-
-			row.addEventListener('mouseleave', () => {
-				clearTimeout(hoverTimer);
-				preview.classList.remove('expanded');
-			});
-		}
+		row.classList.add('book-row-static');
 
 		row.addEventListener('click', () => {
 			if (options.onOpen) {
 				options.onOpen(book);
 				return;
 			}
-			openModal(book);
+			openReader(book);
 		});
 
 		return row;
