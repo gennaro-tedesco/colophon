@@ -21,27 +21,349 @@
 	const activeFiltersEl = document.getElementById('active-filters');
 	const count = document.getElementById('count');
 	const viewToggle = document.getElementById('view-toggle');
+	const sidebarResizer = document.getElementById('sidebar-resizer');
+	const sidebarToggle = document.getElementById('sidebar-toggle');
 	const drilldownBackdrop = document.getElementById('drilldown-backdrop');
 	const drilldownTitle = document.getElementById('drilldown-title');
 	const drilldownBody = document.getElementById('drilldown-body');
 	const drilldownClose = document.getElementById('drilldown-close');
+	const continueReading = document.getElementById('continue-reading');
 
 	const GROUP_LABELS = { language: 'Language', series: 'Series', tags: 'Tags', author: 'Author' };
 	const CHART_PALETTE_VARS = ['--blue', '--lavender', '--teal', '--yellow', '--pink', '--peach', '--green', '--sky', '--rosewater', '--flamingo', '--sapphire', '--red', '--maroon'];
+	const SIDEBAR_WIDTH_KEY = 'sidebar:width';
+	const SIDEBAR_LAST_KEY = 'sidebar:last-width';
+	const SIDEBAR_MIN = 220;
+	const SIDEBAR_MAX = 520;
+	const SIDEBAR_COLLAPSED = 60;
 
-	fetch('/api/library')
-		.then(r => r.json())
-		.then(lib => {
-			allBooks = lib.books || [];
-			const data = buildGroupData(allBooks);
-			navGroups = data.groups;
-			navCounts = data.counts;
-			renderNav();
-			renderFiltered();
-		})
-		.catch(() => {
-			list.innerHTML = '<div class="empty">failed to load library</div>';
+	function clampSidebarWidth(value) {
+		return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value));
+	}
+
+	function applySidebarWidth(value) {
+		const width = value <= SIDEBAR_COLLAPSED ? SIDEBAR_COLLAPSED : clampSidebarWidth(value);
+		document.documentElement.style.setProperty('--sidebar-w', width + 'px');
+		document.body.classList.toggle('sidebar-collapsed', width === SIDEBAR_COLLAPSED);
+		if (sidebarToggle) {
+			sidebarToggle.textContent = width === SIDEBAR_COLLAPSED ? '❯' : '❮';
+			sidebarToggle.setAttribute('aria-label', width === SIDEBAR_COLLAPSED ? 'Expand sidebar' : 'Collapse sidebar');
+		}
+	}
+
+	function initSidebarResize() {
+		const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '', 10);
+		if (saved > 0) applySidebarWidth(saved);
+		if (!sidebarResizer || window.matchMedia('(max-width: 720px)').matches) return;
+		if (sidebarToggle) {
+			sidebarToggle.addEventListener('click', function (event) {
+				event.stopPropagation();
+				const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
+				if (current === SIDEBAR_COLLAPSED) {
+					const restored = parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || '', 10) || 280;
+					applySidebarWidth(restored);
+					localStorage.setItem(SIDEBAR_WIDTH_KEY, String(restored));
+					return;
+				}
+				localStorage.setItem(SIDEBAR_LAST_KEY, String(current));
+				applySidebarWidth(SIDEBAR_COLLAPSED);
+				localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_COLLAPSED));
+			});
+		}
+		sidebarResizer.addEventListener('pointerdown', function (event) {
+			if (event.target === sidebarToggle) return;
+			const startWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')) || 280;
+			const startX = event.clientX;
+			document.body.classList.add('resizing-sidebar');
+			sidebarResizer.setPointerCapture(event.pointerId);
+			function onMove(moveEvent) {
+				applySidebarWidth(startWidth + (moveEvent.clientX - startX));
+			}
+			function onEnd(endEvent) {
+				sidebarResizer.removeEventListener('pointermove', onMove);
+				sidebarResizer.removeEventListener('pointerup', onEnd);
+				sidebarResizer.removeEventListener('pointercancel', onEnd);
+				document.body.classList.remove('resizing-sidebar');
+				sidebarResizer.releasePointerCapture(endEvent.pointerId);
+				const finalWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
+				if (finalWidth > SIDEBAR_COLLAPSED) {
+					localStorage.setItem(SIDEBAR_LAST_KEY, String(finalWidth));
+				}
+				localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
+			}
+			sidebarResizer.addEventListener('pointermove', onMove);
+			sidebarResizer.addEventListener('pointerup', onEnd);
+			sidebarResizer.addEventListener('pointercancel', onEnd);
 		});
+	}
+
+	function loadLibrary() {
+		fetch('/api/library')
+			.then(r => {
+				if (!r.ok) throw new Error(r.status);
+				return r.json();
+			})
+			.then(lib => {
+				allBooks = lib.books || [];
+				if (allBooks.length === 0) {
+					showPickDirectory();
+					return;
+				}
+				const data = buildGroupData(allBooks);
+				navGroups = data.groups;
+				navCounts = data.counts;
+				renderNav();
+				renderFiltered();
+			})
+			.catch(() => {
+				showPickDirectory();
+			});
+	}
+
+	function showPickDirectory() {
+		nav.innerHTML = '';
+		list.innerHTML = '<div class="empty"><button id="pick-dir" type="button" style="' +
+			'background:var(--surface0);border:1px solid var(--surface1);border-radius:6px;' +
+			'color:var(--blue);font-family:var(--font-serif);font-size:var(--fs-md);' +
+			'padding:10px 24px;cursor:pointer">' +
+			'Choose library folder</button></div>';
+		document.getElementById('pick-dir').addEventListener('click', function() {
+			window.go.main.App.PickAndScan().then(function(lib) {
+				allBooks = lib.books || [];
+				if (allBooks.length === 0) return;
+				const data = buildGroupData(allBooks);
+				navGroups = data.groups;
+				navCounts = data.counts;
+				renderNav();
+				renderFiltered();
+			});
+		});
+	}
+
+	let bookAddTimer = null;
+
+	if (window.runtime && typeof window.runtime.EventsOn === 'function') {
+		window.runtime.EventsOn('book:add', function(book) {
+			const idx = allBooks.findIndex(function(b) { return b.path === book.path; });
+			if (idx >= 0) {
+				allBooks[idx] = book;
+			} else {
+				allBooks.push(book);
+			}
+			clearTimeout(bookAddTimer);
+			bookAddTimer = setTimeout(function() {
+				const data = buildGroupData(allBooks);
+				navGroups = data.groups;
+				navCounts = data.counts;
+				renderNav();
+				renderFiltered();
+			}, 80);
+		});
+
+		window.runtime.EventsOn('scan:done', function(lib) {
+			clearTimeout(bookAddTimer);
+			bookAddTimer = null;
+			allBooks = (lib && lib.books) ? lib.books : [];
+			if (allBooks.length > 0) {
+				const data = buildGroupData(allBooks);
+				navGroups = data.groups;
+				navCounts = data.counts;
+				renderNav();
+				renderFiltered();
+			} else {
+				navGroups = { language: [], series: [], tags: [], author: [] };
+				navCounts = { language: {}, series: {}, tags: {}, author: {} };
+				showPickDirectory();
+			}
+		});
+	}
+
+	loadLibrary();
+	initSidebarResize();
+
+	// ── Preferences ──
+	const prefsBackdrop = document.getElementById('prefs-backdrop');
+	const prefsClose = document.getElementById('prefs-close');
+	const prefsLibraryDir = document.getElementById('prefs-library-dir');
+	const prefsPickDir = document.getElementById('prefs-pick-dir');
+	const prefsFontFamily = document.getElementById('prefs-font-family');
+	const prefsFontSize = document.getElementById('prefs-font-size');
+	const prefsFontSizeVal = document.getElementById('prefs-font-size-val');
+	const prefsSave = document.getElementById('prefs-save');
+
+	function applyUIConfig(cfg) {
+		const root = document.documentElement;
+		if (cfg.uiFontSize && cfg.uiFontSize > 0) {
+			const base = cfg.uiFontSize;
+			root.style.setProperty('--fs-xs',   Math.round(base * 0.75) + 'px');
+			root.style.setProperty('--fs-sm',   Math.round(base * 0.9) + 'px');
+			root.style.setProperty('--fs-base', base + 'px');
+			root.style.setProperty('--fs-md',   Math.round(base * 1.15) + 'px');
+			root.style.setProperty('--fs-lg',   Math.round(base * 1.65) + 'px');
+		}
+		if (cfg.uiFontFamily) {
+			root.style.setProperty('--font-sans', "'" + cfg.uiFontFamily + "', system-ui, sans-serif");
+			root.style.setProperty('--font-serif', "'" + cfg.uiFontFamily + "', sans-serif");
+		}
+	}
+
+	function openPreferences() {
+		prefsBackdrop.classList.remove('hidden');
+		window.go.main.App.GetConfig().then(function(cfg) {
+			prefsLibraryDir.value = cfg.libraryDir || '';
+			prefsFontSize.value = cfg.uiFontSize || 20;
+			prefsFontSizeVal.textContent = (cfg.uiFontSize || 20) + 'px';
+			prefsFontFamily.value = cfg.uiFontFamily || '';
+		});
+		window.go.main.App.ListFonts().then(function(fonts) {
+			while (prefsFontFamily.options.length > 1) prefsFontFamily.remove(1);
+			fonts.forEach(function(f) {
+				var opt = document.createElement('option');
+				opt.value = f;
+				opt.textContent = f;
+				prefsFontFamily.appendChild(opt);
+			});
+		});
+	}
+
+	document.addEventListener('keydown', e => { if ((e.metaKey || e.ctrlKey) && e.key === ',') { e.preventDefault(); openPreferences(); } });
+	prefsClose.addEventListener('click', () => prefsBackdrop.classList.add('hidden'));
+	prefsBackdrop.addEventListener('click', e => { if (e.target === prefsBackdrop) prefsBackdrop.classList.add('hidden'); });
+	prefsFontSize.addEventListener('input', () => { prefsFontSizeVal.textContent = prefsFontSize.value + 'px'; });
+	prefsPickDir.addEventListener('click', () => {
+		window.go.main.App.PickAndScan().then(function(lib) {
+			prefsLibraryDir.value = lib.libraryDir || prefsLibraryDir.value;
+			window.go.main.App.GetConfig().then(cfg => { prefsLibraryDir.value = cfg.libraryDir || ''; });
+			if (lib.books && lib.books.length > 0) {
+				allBooks = lib.books;
+				const data = buildGroupData(allBooks);
+				navGroups = data.groups;
+				navCounts = data.counts;
+				renderNav();
+				renderFiltered();
+			}
+		});
+	});
+	let currentCfg = {};
+
+	prefsSave.addEventListener('click', () => {
+		const cfg = Object.assign({}, currentCfg, {
+			libraryDir:   prefsLibraryDir.value,
+			uiFontFamily: prefsFontFamily.value,
+			uiFontSize:   parseInt(prefsFontSize.value, 10),
+		});
+		window.go.main.App.SaveConfig(cfg).then(function() {
+			currentCfg = cfg;
+			applyUIConfig(cfg);
+			prefsBackdrop.classList.add('hidden');
+			if (cfg.libraryDir) loadLibrary();
+		});
+	});
+
+	window.openPreferences = openPreferences;
+	if (new URLSearchParams(location.search).has('openPrefs')) { openPreferences(); }
+
+	// ── App settings menu ──
+	let appMenuHideTimer = null;
+
+	const appMenuToggle = document.getElementById('app-menu-toggle');
+	const appMenuPanel = document.getElementById('app-menu-panel');
+	const appDirName = document.getElementById('app-dir-name');
+	const appDirPick = document.getElementById('app-dir-pick');
+	const appFontFamily = document.getElementById('app-font-family');
+	const appFontSlider = document.getElementById('app-font-slider');
+	const appFontVal = document.getElementById('app-font-val');
+
+	function showAppMenu() {
+		clearTimeout(appMenuHideTimer);
+		appMenuToggle.classList.add('open');
+		appMenuPanel.classList.add('open');
+	}
+
+	function scheduleHideAppMenu() {
+		clearTimeout(appMenuHideTimer);
+		appMenuHideTimer = setTimeout(function() {
+			appMenuToggle.classList.remove('open');
+			appMenuPanel.classList.remove('open');
+		}, 300);
+	}
+
+	appMenuToggle.addEventListener('mouseenter', showAppMenu);
+	appMenuToggle.addEventListener('mouseleave', scheduleHideAppMenu);
+	appMenuPanel.addEventListener('mouseenter', function() { clearTimeout(appMenuHideTimer); });
+	appMenuPanel.addEventListener('mouseleave', scheduleHideAppMenu);
+
+	appDirPick.addEventListener('click', function() {
+		window.go.main.App.PickAndScan().then(function(lib) {
+			window.go.main.App.GetConfig().then(function(cfg) {
+				currentCfg = cfg;
+				appDirName.textContent = cfg.libraryDir || '—';
+				if (lib.books && lib.books.length > 0) {
+					allBooks = lib.books;
+					const data = buildGroupData(allBooks);
+					navGroups = data.groups;
+					navCounts = data.counts;
+					renderNav();
+					renderFiltered();
+				}
+			});
+		});
+	});
+
+	appFontSlider.addEventListener('input', function() {
+		const size = parseInt(appFontSlider.value);
+		appFontVal.textContent = size + 'px';
+		applyUIConfig({ uiFontSize: size });
+	});
+
+	appFontFamily.addEventListener('change', function() {
+		const cfg = Object.assign({}, currentCfg, { uiFontFamily: appFontFamily.value });
+		currentCfg = cfg;
+		applyUIConfig(cfg);
+		window.go.main.App.SaveConfig(cfg);
+	});
+
+	appFontSlider.addEventListener('change', function() {
+		const cfg = Object.assign({}, currentCfg, { uiFontSize: parseInt(appFontSlider.value) });
+		currentCfg = cfg;
+		window.go.main.App.SaveConfig(cfg);
+	});
+
+	function initAppMenu(cfg) {
+		appDirName.textContent = cfg.libraryDir || '—';
+		const size = cfg.uiFontSize || 20;
+		appFontSlider.value = size;
+		appFontVal.textContent = size + 'px';
+		window.go.main.App.ListFonts().then(function(fonts) {
+			while (appFontFamily.options.length > 1) appFontFamily.remove(1);
+			fonts.forEach(function(f) {
+				const opt = document.createElement('option');
+				opt.value = f;
+				opt.textContent = f;
+				appFontFamily.appendChild(opt);
+			});
+			appFontFamily.value = cfg.uiFontFamily || '';
+		});
+	}
+
+	window.go.main.App.GetConfig().then(function(cfg) {
+		currentCfg = cfg;
+		applyUIConfig(cfg);
+		initAppMenu(cfg);
+	});
+
+	(function initContinueReading() {
+		try {
+			var data = JSON.parse(localStorage.getItem('lastRead'));
+			if (data && data.path) {
+				continueReading.title = 'Continue reading: ' + (data.title || '');
+				continueReading.style.display = '';
+				continueReading.addEventListener('click', function() {
+					window.location.href = '/read/' + data.path + '?chapter=' + (data.chapter || 0);
+				});
+			}
+		} catch (e) {}
+	})();
 
 	search.addEventListener('input', () => {
 		searchClear.classList.toggle('visible', search.value.length > 0);

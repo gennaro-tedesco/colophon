@@ -8,7 +8,6 @@ import (
 	"html"
 	"html/template"
 	"io"
-	"io/fs"
 	"log"
 	"mime"
 	"net/http"
@@ -35,7 +34,27 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="/theme.css">
+  <script>
+    fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
+      var root = document.documentElement;
+      if (cfg.uiFontSize > 0) {
+        var b = cfg.uiFontSize;
+        root.style.setProperty('--fs-xs',   Math.round(b*0.75)+'px');
+        root.style.setProperty('--fs-sm',   Math.round(b*0.9)+'px');
+        root.style.setProperty('--fs-base', b+'px');
+        root.style.setProperty('--fs-md',   Math.round(b*1.15)+'px');
+        root.style.setProperty('--fs-lg',   Math.round(b*1.65)+'px');
+      }
+      if (cfg.uiFontFamily) {
+        root.style.setProperty('--font-sans',  "'"+cfg.uiFontFamily+"', system-ui, sans-serif");
+        root.style.setProperty('--font-serif', "'"+cfg.uiFontFamily+"', sans-serif");
+      }
+    });
+  </script>
   <style>
+    :root {
+      --fs-xs: 15px; --fs-sm: 18px; --fs-base: 20px; --fs-md: 23px; --fs-lg: 33px; --sidebar-w: 280px; --reader-shell-fg: var(--text);
+    }
     *, *::before, *::after { box-sizing: border-box; }
     html, body {
       height: 100%;
@@ -48,15 +67,50 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
     }
     body {
       display: grid;
-      grid-template-columns: 280px minmax(0, 1fr);
+      grid-template-columns: var(--sidebar-w) 10px minmax(0, 1fr);
       overflow: hidden;
     }
     .reader-sidebar {
       background: var(--mantle);
-      border-right: 1px solid color-mix(in srgb, var(--surface1) 55%, transparent);
       overflow: hidden;
       display: flex;
       flex-direction: column;
+      position: relative;
+    }
+    .reader-sidebar-resizer {
+      cursor: col-resize;
+      background: transparent;
+      touch-action: none;
+    }
+    .reader-sidebar-toggle {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      width: 42px;
+      height: 42px;
+      border: none;
+      background: transparent;
+      color: var(--text);
+      cursor: pointer;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 28px;
+      line-height: 1;
+      z-index: 1;
+      opacity: 1;
+      pointer-events: auto;
+      transition: color 0.15s ease;
+    }
+    .reader-sidebar-toggle:hover {
+      color: var(--text);
+    }
+    body.sidebar-collapsed .reader-sidebar-header,
+    body.sidebar-collapsed .reader-toc {
+      display: none;
+    }
+    body.sidebar-collapsed .reader-sidebar {
+      overflow: visible;
     }
     .reader-sidebar-header {
       padding: 24px 20px 18px;
@@ -64,7 +118,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
     }
     .reader-kicker {
       font-family: var(--font-mono);
-      font-size: var(--fs-sm);
+      font-size: var(--fs-base);
       color: var(--teal);
       text-transform: uppercase;
       letter-spacing: 0.12em;
@@ -72,7 +126,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
     .reader-book-title {
       margin-top: 10px;
       font-family: var(--font-serif);
-      font-size: 20px;
+      font-size: var(--fs-lg);
       color: var(--text);
       line-height: 1.35;
     }
@@ -91,6 +145,10 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       cursor: pointer;
       transition: border-color 0.15s, color 0.15s, background 0.15s;
       margin: 0;
+    }
+    .reader-library-action svg {
+      width: var(--fs-md);
+      height: var(--fs-md);
     }
     .reader-library-action:hover {
       color: var(--mauve);
@@ -153,7 +211,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       cursor: pointer;
       user-select: none;
       color: var(--overlay1);
-      font-size: var(--fs-base);
+      font-size: var(--fs-md);
       font-weight: 500;
       letter-spacing: 0.12em;
       text-transform: uppercase;
@@ -163,7 +221,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       color: var(--blue);
     }
     .group-chevron {
-      font-size: var(--fs-base);
+      font-size: var(--fs-md);
       color: var(--lavender);
       transition: transform 0.2s;
     }
@@ -192,7 +250,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       padding: 6px 20px 6px 28px;
       cursor: pointer;
       color: var(--subtext0);
-      font-size: var(--fs-base);
+      font-size: var(--fs-md);
       transition: color 0.12s, background 0.12s;
       border-left: 2px solid transparent;
       text-decoration: none;
@@ -262,7 +320,6 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       font-family: var(--font-mono);
       font-size: var(--fs-sm);
       color: var(--yellow);
-      background: color-mix(in srgb, var(--yellow) 14%, var(--mantle));
       padding: 1px 5px;
       border-radius: 3px;
       white-space: nowrap;
@@ -273,6 +330,39 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 	      min-height: 0;
 	      padding: 20px 24px 24px;
 	    }
+    .reader-next-chapter {
+      position: absolute;
+      right: 72px;
+      bottom: 40px;
+      z-index: 3;
+      color: var(--reader-shell-fg);
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 36px;
+      min-height: 36px;
+      padding: 0 12px;
+      font-family: var(--font-mono);
+      font-size: var(--fs-md);
+      text-decoration: none;
+      opacity: 0;
+      pointer-events: none;
+      transform: translateY(12px);
+      transition: opacity 0.18s ease, transform 0.18s ease, color 0.15s ease, border-color 0.15s ease, background 0.15s ease;
+    }
+    .reader-next-chapter:link,
+    .reader-next-chapter:visited,
+    .reader-next-chapter:hover,
+    .reader-next-chapter:active,
+    .reader-next-chapter:focus {
+      color: var(--reader-shell-fg);
+      text-decoration: none;
+    }
+    .reader-next-chapter.visible {
+      opacity: 1;
+      pointer-events: auto;
+      transform: translateY(0);
+    }
 	    .reader-page-tools {
       position: absolute;
       top: 32px;
@@ -285,22 +375,25 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       display: inline-flex;
       align-items: center;
       justify-content: center;
-      width: 28px;
-      height: 28px;
+      width: 56px;
+      height: 56px;
       border: none;
       background: transparent;
-      color: var(--text);
-      font-size: 22px;
+      color: var(--reader-shell-fg);
+      font-size: 44px;
       cursor: pointer;
       padding: 0;
       transition: transform 0.2s ease, color 0.15s ease;
       transform-origin: center;
     }
+    .reader-menu-toggle,
+    .reader-menu-toggle:hover,
+    .reader-menu-toggle:active,
+    .reader-menu-toggle:focus {
+      color: var(--reader-shell-fg);
+    }
     .reader-menu-toggle.rotating {
       transform: rotate(180deg);
-    }
-    .reader-menu-toggle:hover {
-      color: var(--mauve);
     }
     .reader-menu-panel {
       display: none;
@@ -333,21 +426,26 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       display: flex;
       align-items: center;
     }
+    .reader-control-symbol svg {
+      width: var(--fs-md);
+      height: var(--fs-md);
+      flex: 0 0 auto;
+    }
 	.reader-control-bubble {
 		position: relative;
 		display: inline-flex;
 		align-items: center;
 		justify-content: center;
-		min-width: 22px;
-		min-height: 22px;
+		min-width: 26px;
+		min-height: 26px;
 	}
 	    .reader-current-swatch,
 	    .reader-current-line,
 	    .reader-current-size {
 	      position: relative;
 	      z-index: 1;
-	      width: 22px;
-		height: 22px;
+	      width: 26px;
+		height: 26px;
 		border-radius: 999px;
 		border: 1px solid color-mix(in srgb, var(--surface1) 75%, transparent);
       flex: 0 0 auto;
@@ -355,18 +453,18 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 	    .reader-current-line,
 	    .reader-current-size {
 	      width: auto;
-	      min-width: 28px;
+	      min-width: 32px;
 	      padding: 0 7px;
       background: color-mix(in srgb, var(--surface0) 55%, transparent);
       color: var(--text);
       font-family: var(--font-mono);
-	      font-size: var(--fs-xs);
-	      line-height: 20px;
+	      font-size: var(--fs-sm);
+	      line-height: 26px;
 	      text-align: center;
 	    }
 	    .reader-current-size {
-	      font-size: 15px;
-	      line-height: 18px;
+	      font-size: var(--fs-sm);
+	      line-height: 26px;
 	    }
 	.reader-bubble-menu {
 		position: absolute;
@@ -436,6 +534,34 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 	      margin: 0;
 	      padding: 0;
 	    }
+	    .reader-font-menu {
+	      width: 180px;
+	      overflow-y: auto;
+	      max-height: 160px;
+	      border-radius: 8px;
+	      align-items: stretch;
+	    }
+	    .reader-font-choice {
+	      display: block;
+	      width: 100%;
+	      text-align: left;
+	      background: none;
+	      border: none;
+	      color: var(--text);
+	      font-size: 13px;
+	      padding: 3px 6px;
+	      cursor: pointer;
+	      border-radius: 3px;
+	      white-space: nowrap;
+	      outline: none;
+	    }
+	    .reader-font-choice:hover {
+	      background: var(--surface1);
+	    }
+	    .reader-font-choice.reader-choice-active {
+	      outline: none;
+	      color: var(--blue);
+	    }
 	    .reader-frame {
 	      width: 100%;
 	      height: 100%;
@@ -450,6 +576,9 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
         grid-template-columns: 1fr;
         grid-template-rows: auto minmax(0, 1fr);
       }
+      .reader-sidebar-resizer {
+        display: none;
+      }
       .reader-sidebar {
         border-right: none;
         border-bottom: 1px solid color-mix(in srgb, var(--surface1) 55%, transparent);
@@ -457,6 +586,10 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       }
       .reader-frame-wrap {
         padding: 16px;
+      }
+      .reader-next-chapter {
+        right: 56px;
+        bottom: 24px;
       }
       .reader-page-tools {
         top: 24px;
@@ -467,6 +600,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 </head>
 <body>
   <aside class="reader-sidebar">
+    <button id="reader-sidebar-toggle" class="reader-sidebar-toggle" type="button" aria-label="Collapse sidebar">‹</button>
     <div class="reader-sidebar-header">
       <div class="reader-kicker">Reader</div>
       <div class="reader-book-title">{{.Title}}</div>
@@ -480,6 +614,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
     </div>
 	    <nav id="reader-toc" class="reader-toc">{{.TOCHTML}}</nav>
   </aside>
+  <div id="reader-sidebar-resizer" class="reader-sidebar-resizer" aria-hidden="true"></div>
   <main class="reader-main">
     <div class="reader-toolbar">
       <div class="reader-toolbar-title">
@@ -493,7 +628,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
         <div id="reader-menu-panel" class="reader-menu-panel">
           <div class="reader-controls">
             <div class="reader-control-group" aria-label="Background color">
-              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>
               <div class="reader-control-bubble">
                 <span id="reader-bg-current" class="reader-current-swatch" style="background:#073541"></span>
                 <div class="reader-bubble-menu" aria-label="Background color">
@@ -505,7 +640,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
               </div>
             </div>
             <div class="reader-control-group" aria-label="Text color">
-              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/></svg></span>
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/></svg></span>
               <div class="reader-control-bubble">
                 <span id="reader-fg-current" class="reader-current-swatch" style="background:#fdf6e2"></span>
                 <div class="reader-bubble-menu" aria-label="Text color">
@@ -517,7 +652,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
               </div>
             </div>
 	            <div class="reader-control-group" aria-label="Line height">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m8 18 4 4 4-4"/><path d="m8 6 4-4 4 4"/></svg></span>
+	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m8 18 4 4 4-4"/><path d="m8 6 4-4 4 4"/></svg></span>
 	              <div class="reader-control-bubble">
 	                <span id="reader-lh-current" class="reader-current-line">1.6</span>
 	                <div class="reader-bubble-menu" aria-label="Line height">
@@ -526,71 +661,169 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 	              </div>
 	            </div>
 	            <div class="reader-control-group" aria-label="Font size">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></svg></span>
+	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></svg></span>
 	              <div class="reader-control-bubble">
 	                <span id="reader-size-current" class="reader-current-size">16</span>
 	                <div class="reader-bubble-menu" aria-label="Font size">
-	                  <input type="range" orient="vertical" id="reader-size-slider" class="reader-slider" min="12" max="24" step="1" value="16">
+	                  <input type="range" orient="vertical" id="reader-size-slider" class="reader-slider" min="24" max="48" step="1" value="24">
+	                </div>
+	              </div>
+	            </div>
+	            <div class="reader-control-group" aria-label="Page padding">
+	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6"/><path d="M15 12h6"/><path d="m7 8-4 4 4 4"/><path d="m17 8 4 4-4 4"/></svg></span>
+	              <div class="reader-control-bubble">
+	                <span id="reader-pad-current" class="reader-current-size">72</span>
+	                <div class="reader-bubble-menu" aria-label="Page padding">
+	                  <input type="range" orient="vertical" id="reader-pad-slider" class="reader-slider" min="32" max="160" step="4" value="72">
+	                </div>
+	              </div>
+	            </div>
+	            <div class="reader-control-group" aria-label="Font family">
+	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg></span>
+	              <div class="reader-control-bubble">
+	                <span id="reader-font-current" class="reader-current-line">Default</span>
+	                <div class="reader-bubble-menu reader-font-menu" aria-label="Font family">
+	                  <button type="button" class="reader-font-choice reader-choice-active" data-font="">Default</button>
 	                </div>
 	              </div>
 	            </div>
 	          </div>
 	        </div>
 	      </div>
+      {{if .Next}}<a id="reader-next-chapter" class="reader-next-chapter" href="{{.Next}}" aria-label="Next chapter">❯</a>{{end}}
 	      <iframe id="reader-frame" class="reader-frame" src="{{.IframeSrc}}" title="{{.CurrentChapter}}"></iframe>
 	    </div>
 	  </main>
 	  <script>
 	    (function () {
-	      const frame = document.getElementById('reader-frame');
-	      const pageTools = document.getElementById('reader-page-tools');
+		      const frame = document.getElementById('reader-frame');
+		      const nextChapter = document.getElementById('reader-next-chapter');
+		      const sidebarResizer = document.getElementById('reader-sidebar-resizer');
+		      const sidebarToggle = document.getElementById('reader-sidebar-toggle');
+		      const pageTools = document.getElementById('reader-page-tools');
 	      const menuToggle = document.getElementById('reader-menu-toggle');
 	      const menuPanel = document.getElementById('reader-menu-panel');
 	      const toc = document.getElementById('reader-toc');
-	      const bgCurrent = document.getElementById('reader-bg-current');
-	      const fgCurrent = document.getElementById('reader-fg-current');
-	      const lhCurrent = document.getElementById('reader-lh-current');
-	      const sizeCurrent = document.getElementById('reader-size-current');
-	      const bgChoices = Array.from(document.querySelectorAll('[data-bg]'));
-	      const fgChoices = Array.from(document.querySelectorAll('[data-fg]'));
-	      const lhSlider = document.getElementById('reader-lh-slider');
-	      const sizeSlider = document.getElementById('reader-size-slider');
+		      const bgCurrent = document.getElementById('reader-bg-current');
+		      const fgCurrent = document.getElementById('reader-fg-current');
+		      const lhCurrent = document.getElementById('reader-lh-current');
+		      const sizeCurrent = document.getElementById('reader-size-current');
+		      const padCurrent = document.getElementById('reader-pad-current');
+		      const bgChoices = Array.from(document.querySelectorAll('[data-bg]'));
+		      const fgChoices = Array.from(document.querySelectorAll('[data-fg]'));
+		      const lhSlider = document.getElementById('reader-lh-slider');
+		      const sizeSlider = document.getElementById('reader-size-slider');
+		      const padSlider = document.getElementById('reader-pad-slider');
+		      const fontCurrent = document.getElementById('reader-font-current');
+	      const fontMenu = document.querySelector('.reader-font-menu');
 	      const bubbles = Array.from(document.querySelectorAll('.reader-control-bubble'));
 	      const controlGroups = Array.from(document.querySelectorAll('.reader-control-group'));
 	      let bg = localStorage.getItem('reader:bg') || '#073541';
 	      let fg = localStorage.getItem('reader:fg') || '#fdf6e2';
 	      let lh = localStorage.getItem('reader:lh') || '1.6';
-	      let size = localStorage.getItem('reader:size') || '16px';
-	      let hideTimer = null;
-	      let openTimer = null;
-	      let frameCloseBound = false;
+	      let size = localStorage.getItem('reader:size') || '24px';
+	      let padX = localStorage.getItem('reader:px') || '72px';
+	      let fontFamily = localStorage.getItem('reader:font') || '';
+		      let hideTimer = null;
+		      let openTimer = null;
+		      let frameCloseBound = false;
+		      let frameScrollBound = false;
+		      const SIDEBAR_WIDTH_KEY = 'sidebar:width';
+		      const SIDEBAR_LAST_KEY = 'sidebar:last-width';
+		      const SIDEBAR_MIN = 220;
+		      const SIDEBAR_MAX = 520;
+		      const SIDEBAR_COLLAPSED = 60;
 
-			function applyTheme(nextBg, nextFg, nextLh, nextSize) {
-				const activeBg = nextBg || bg;
-				const activeFg = nextFg || fg;
-				const activeLh = nextLh || lh;
-				const activeSize = nextSize || size;
-				applyThemeToFrame(frame, activeBg, activeFg, activeLh, activeSize);
-				bgCurrent.style.backgroundColor = activeBg;
-				fgCurrent.style.backgroundColor = activeFg;
-				lhCurrent.textContent = activeLh;
-				sizeCurrent.textContent = activeSize.replace('px', '');
+			function clampSidebarWidth(value) {
+				return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value));
 			}
 
-			function applyThemeToFrame(frame, activeBg, activeFg, activeLh, activeSize) {
+			function applySidebarWidth(value) {
+				const width = value <= SIDEBAR_COLLAPSED ? SIDEBAR_COLLAPSED : clampSidebarWidth(value);
+				document.documentElement.style.setProperty('--sidebar-w', width + 'px');
+				document.body.classList.toggle('sidebar-collapsed', width === SIDEBAR_COLLAPSED);
+				if (sidebarToggle) {
+					sidebarToggle.textContent = width === SIDEBAR_COLLAPSED ? '❯' : '❮';
+					sidebarToggle.setAttribute('aria-label', width === SIDEBAR_COLLAPSED ? 'Expand sidebar' : 'Collapse sidebar');
+				}
+			}
+
+			function initSidebarResize() {
+				const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '', 10);
+				if (saved > 0) applySidebarWidth(saved);
+				if (!sidebarResizer || window.matchMedia('(max-width: 920px)').matches) return;
+				if (sidebarToggle) {
+					sidebarToggle.addEventListener('click', function (event) {
+						event.stopPropagation();
+						const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
+						if (current === SIDEBAR_COLLAPSED) {
+							const restored = parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || '', 10) || 280;
+							applySidebarWidth(restored);
+							localStorage.setItem(SIDEBAR_WIDTH_KEY, String(restored));
+							return;
+						}
+						localStorage.setItem(SIDEBAR_LAST_KEY, String(current));
+						applySidebarWidth(SIDEBAR_COLLAPSED);
+						localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_COLLAPSED));
+					});
+				}
+				sidebarResizer.addEventListener('pointerdown', function (event) {
+					if (event.target === sidebarToggle) return;
+					const startWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')) || 280;
+					const startX = event.clientX;
+					document.body.classList.add('resizing-sidebar');
+					sidebarResizer.setPointerCapture(event.pointerId);
+					function onMove(moveEvent) {
+						applySidebarWidth(startWidth + (moveEvent.clientX - startX));
+					}
+					function onEnd(endEvent) {
+						sidebarResizer.removeEventListener('pointermove', onMove);
+						sidebarResizer.removeEventListener('pointerup', onEnd);
+						sidebarResizer.removeEventListener('pointercancel', onEnd);
+						document.body.classList.remove('resizing-sidebar');
+						sidebarResizer.releasePointerCapture(endEvent.pointerId);
+						const finalWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
+						if (finalWidth > SIDEBAR_COLLAPSED) {
+							localStorage.setItem(SIDEBAR_LAST_KEY, String(finalWidth));
+						}
+						localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
+					}
+					sidebarResizer.addEventListener('pointermove', onMove);
+					sidebarResizer.addEventListener('pointerup', onEnd);
+					sidebarResizer.addEventListener('pointercancel', onEnd);
+				});
+			}
+
+			function applyTheme() {
+				applyThemeToFrame(frame, bg, fg, lh, size, padX, fontFamily);
+				document.documentElement.style.setProperty('--reader-shell-fg', fg);
+				bgCurrent.style.backgroundColor = bg;
+				fgCurrent.style.backgroundColor = fg;
+				lhCurrent.textContent = lh;
+				sizeCurrent.textContent = size.replace('px', '');
+				padCurrent.textContent = padX.replace('px', '');
+				fontCurrent.textContent = fontFamily || 'Default';
+			}
+
+			function applyThemeToFrame(frame, activeBg, activeFg, activeLh, activeSize, activePadX, activeFont) {
 				const doc = frame.contentDocument;
 				if (!doc) return;
 				doc.documentElement.style.setProperty('--reader-bg', activeBg);
 				doc.documentElement.style.setProperty('--reader-fg', activeFg);
+				doc.documentElement.style.setProperty('--reader-pad-x', activePadX);
 				doc.documentElement.style.backgroundColor = activeBg;
 				doc.documentElement.style.color = activeFg;
 				doc.documentElement.style.lineHeight = activeLh;
 				doc.documentElement.style.fontSize = activeSize;
+				doc.documentElement.style.fontFamily = activeFont || '';
 				if (doc.body) {
 					doc.body.style.backgroundColor = activeBg;
 					doc.body.style.color = activeFg;
 					doc.body.style.lineHeight = activeLh;
 					doc.body.style.fontSize = activeSize;
+					doc.body.style.paddingLeft = activePadX;
+					doc.body.style.paddingRight = activePadX;
+					doc.body.style.fontFamily = activeFont || '';
 				}
 			}
 
@@ -635,7 +868,7 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       }
 
 		function openBubble(targetBubble) {
-			const current = targetBubble.querySelector('.reader-current-swatch, .reader-current-line, .reader-current-size');
+			const current = targetBubble.querySelector('.reader-current-swatch, .reader-current-line, .reader-current-size, #reader-font-current');
 			const menu = targetBubble.querySelector('.reader-bubble-menu');
 			if (current && menu) {
 				menu.style.left = String(current.offsetLeft + current.offsetWidth / 2) + 'px';
@@ -649,32 +882,44 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
         targetBubble.classList.remove('open');
       }
 
-		function bindChoices(choices, key, setter) {
-			choices.forEach(choice => {
-					choice.addEventListener('mouseenter', function () {
-						const previewBg = key === 'bg' ? choice.dataset[key] : bg;
-						const previewFg = key === 'fg' ? choice.dataset[key] : fg;
-						const previewLh = key === 'lh' ? choice.dataset[key] : lh;
-						const previewSize = key === 'size' ? choice.dataset[key] : size;
-						applyTheme(previewBg, previewFg, previewLh, previewSize);
+			function bindChoices(choices, key, setter) {
+				choices.forEach(choice => {
+						var saved;
+						var previewing = false;
+						choice.addEventListener('mousedown', function (event) {
+							event.stopPropagation();
+						});
+						choice.addEventListener('pointerdown', function (event) {
+							event.preventDefault();
+							event.stopPropagation();
+							previewing = false;
+							saved = choice.dataset[key];
+							choices.forEach(item => item.classList.remove('reader-choice-active'));
+							choice.classList.add('reader-choice-active');
+							setter(choice.dataset[key]);
+							localStorage.setItem('reader:' + key, choice.dataset[key]);
+							applyTheme();
+							scheduleHide();
+						});
+						choice.addEventListener('mouseenter', function () {
+							saved = key === 'bg' ? bg : fg;
+							previewing = true;
+							setter(choice.dataset[key]);
+							applyTheme();
+						});
+						choice.addEventListener('mouseleave', function () {
+							if (previewing) {
+								setter(saved);
+								applyTheme();
+								previewing = false;
+							}
 					});
-					choice.addEventListener('mouseleave', function () {
-						applyTheme();
 				});
-				choice.addEventListener('click', function () {
-					choices.forEach(item => item.classList.remove('reader-choice-active'));
-					choice.classList.add('reader-choice-active');
-					setter(choice.dataset[key]);
-					localStorage.setItem('reader:' + key, choice.dataset[key]);
-            applyTheme();
-            scheduleHide();
-          });
-			});
-		}
+			}
 
-		function bindFrameClose() {
-			if (frameCloseBound) {
-				return;
+			function bindFrameClose() {
+				if (frameCloseBound) {
+					return;
 			}
 			const doc = frame.contentDocument;
 			if (!doc) return;
@@ -682,8 +927,60 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 				closeMenu();
 				menuToggle.classList.remove('rotating');
 			});
-			frameCloseBound = true;
-		}
+				frameCloseBound = true;
+			}
+
+			function updateNextChapterVisibility() {
+				if (!nextChapter) {
+					return;
+				}
+				const doc = frame.contentDocument;
+				if (!doc) {
+					nextChapter.classList.remove('visible');
+					return;
+				}
+				const win = doc.defaultView;
+				const docEl = doc.documentElement;
+				const body = doc.body;
+				if (!win || !docEl) {
+					nextChapter.classList.remove('visible');
+					return;
+				}
+				const scrollTop = win.scrollY || win.pageYOffset || docEl.scrollTop || (body ? body.scrollTop : 0) || 0;
+				const clientHeight = win.innerHeight || docEl.clientHeight || (body ? body.clientHeight : 0) || 0;
+				const scrollHeight = Math.max(
+					docEl.scrollHeight || 0,
+					body ? body.scrollHeight : 0,
+					doc.scrollingElement ? doc.scrollingElement.scrollHeight : 0,
+				);
+				const atBottom = Math.abs(scrollHeight - clientHeight - scrollTop) <= 2;
+				nextChapter.classList.toggle('visible', atBottom);
+			}
+
+			function bindFrameScroll() {
+				if (!nextChapter || frameScrollBound) {
+					return;
+				}
+				const doc = frame.contentDocument;
+				if (!doc) {
+					return;
+				}
+				const win = doc.defaultView;
+				const docEl = doc.documentElement;
+				const body = doc.body;
+				if (!win || !docEl) {
+					return;
+				}
+				win.addEventListener('scroll', updateNextChapterVisibility, { passive: true });
+				win.addEventListener('resize', updateNextChapterVisibility);
+				doc.addEventListener('scroll', updateNextChapterVisibility, { passive: true });
+				docEl.addEventListener('scroll', updateNextChapterVisibility, { passive: true });
+				if (body) {
+					body.addEventListener('scroll', updateNextChapterVisibility, { passive: true });
+				}
+				frameScrollBound = true;
+				updateNextChapterVisibility();
+			}
 
 		function syncActiveChoices(choices, key, currentValue) {
 			choices.forEach(choice => {
@@ -693,33 +990,113 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 
 	      bindChoices(bgChoices, 'bg', value => { bg = value; });
 	      bindChoices(fgChoices, 'fg', value => { fg = value; });
-	      lhSlider.value = lh;
-	      lhSlider.addEventListener('input', function () {
-	        lh = lhSlider.value;
-	        applyTheme();
+		      lhSlider.value = lh;
+		      lhSlider.addEventListener('mousedown', function (event) {
+		        event.stopPropagation();
+		      });
+		      lhSlider.addEventListener('input', function () {
+		        lh = lhSlider.value;
+		        applyTheme();
 	      });
 	      lhSlider.addEventListener('change', function () {
 	        localStorage.setItem('reader:lh', lh);
 	        scheduleHide();
+		      });
+		      sizeSlider.value = size.replace('px', '');
+		      sizeSlider.addEventListener('mousedown', function (event) {
+		        event.stopPropagation();
+		      });
+		      sizeSlider.addEventListener('input', function () {
+		        size = sizeSlider.value + 'px';
+		        applyTheme();
 	      });
-	      sizeSlider.value = size.replace('px', '');
-	      sizeSlider.addEventListener('input', function () {
-	        size = sizeSlider.value + 'px';
-	        applyTheme();
-	      });
-	      sizeSlider.addEventListener('change', function () {
-	        localStorage.setItem('reader:size', size);
-	        scheduleHide();
+		      sizeSlider.addEventListener('change', function () {
+		        localStorage.setItem('reader:size', size);
+		        scheduleHide();
+		      });
+		      padSlider.value = padX.replace('px', '');
+		      padSlider.addEventListener('mousedown', function (event) {
+		        event.stopPropagation();
+		      });
+		      padSlider.addEventListener('input', function () {
+		        padX = padSlider.value + 'px';
+		        applyTheme();
+		      });
+		      padSlider.addEventListener('change', function () {
+		        localStorage.setItem('reader:px', padX);
+		        scheduleHide();
+		      });
+		      function bindFontChoices() {
+		        const choices = Array.from(fontMenu.querySelectorAll('.reader-font-choice'));
+		        choices.forEach(function (choice) {
+		          var saved;
+		          var previewing = false;
+		          choice.addEventListener('mousedown', function (event) {
+		            event.stopPropagation();
+		          });
+		          choice.addEventListener('pointerdown', function (event) {
+		            event.preventDefault();
+		            event.stopPropagation();
+		            previewing = false;
+		            saved = choice.dataset.font;
+		            choices.forEach(function (c) { c.classList.remove('reader-choice-active'); });
+		            choice.classList.add('reader-choice-active');
+		            fontFamily = choice.dataset.font;
+		            localStorage.setItem('reader:font', fontFamily);
+		            applyTheme();
+		            closeBubble(fontMenu.closest('.reader-control-bubble'));
+		            scheduleHide();
+		          });
+		          choice.addEventListener('mouseenter', function () {
+		            saved = fontFamily;
+		            previewing = true;
+		            fontFamily = choice.dataset.font;
+		            applyTheme();
+		          });
+		          choice.addEventListener('mouseleave', function () {
+		            if (previewing) {
+		              fontFamily = saved;
+		              applyTheme();
+		              previewing = false;
+		            }
+		          });
+		        });
+		      }
+	      fetch('/api/fonts').then(function(r) { return r.json(); }).then(function (fonts) {
+	        fonts.forEach(function (f) {
+	          var btn = document.createElement('button');
+	          btn.type = 'button';
+	          btn.className = 'reader-font-choice';
+	          btn.dataset.font = f;
+	          btn.textContent = f;
+	          btn.style.fontFamily = "'" + f + "'";
+	          fontMenu.appendChild(btn);
+	        });
+	        fontMenu.querySelectorAll('.reader-font-choice').forEach(function (c) {
+	          c.classList.toggle('reader-choice-active', c.dataset.font === fontFamily);
+	        });
+	        bindFontChoices();
 	      });
 
-      controlGroups.forEach(group => {
-        const bubble = group.querySelector('.reader-control-bubble');
-        if (!bubble) {
-          return;
-        }
-        group.addEventListener('mouseenter', function () {
-          clearTimeout(hideTimer);
-          openBubble(bubble);
+		      controlGroups.forEach(group => {
+		        const bubble = group.querySelector('.reader-control-bubble');
+		        if (!bubble) {
+		          return;
+		        }
+		        group.addEventListener('mousedown', function (event) {
+		          event.stopPropagation();
+		        });
+		        group.addEventListener('click', function (event) {
+		          event.stopPropagation();
+		          clearTimeout(hideTimer);
+		          if (!menuPanel.classList.contains('open')) {
+	            openMenu();
+	          }
+	          openBubble(bubble);
+	        });
+	        group.addEventListener('mouseenter', function () {
+	          clearTimeout(hideTimer);
+	          openBubble(bubble);
         });
         group.addEventListener('mouseleave', function () {
           closeBubble(bubble);
@@ -730,15 +1107,21 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       });
 
       menuToggle.addEventListener('mouseenter', queueOpenMenu);
-      menuToggle.addEventListener('click', function () {
-        if (menuPanel.classList.contains('open')) {
-          closeMenu();
-          return;
-        }
-        queueOpenMenu();
-      });
-      pageTools.addEventListener('mouseenter', function () {
-        clearTimeout(openTimer);
+	      menuToggle.addEventListener('click', function () {
+	        if (menuPanel.classList.contains('open')) {
+	          closeMenu();
+	          return;
+	        }
+	        queueOpenMenu();
+	      });
+	      pageTools.addEventListener('mousedown', function (event) {
+	        event.stopPropagation();
+	      });
+	      menuPanel.addEventListener('mousedown', function (event) {
+	        event.stopPropagation();
+	      });
+	      pageTools.addEventListener('mouseenter', function () {
+	        clearTimeout(openTimer);
         openTimer = null;
         clearTimeout(hideTimer);
         if (!menuPanel.classList.contains('open')) {
@@ -781,13 +1164,18 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
       }
 	      syncActiveChoices(bgChoices, 'bg', bg);
 	      syncActiveChoices(fgChoices, 'fg', fg);
-		frame.addEventListener('load', function () {
-			frameCloseBound = false;
-			applyTheme();
+			frame.addEventListener('load', function () {
+				frameCloseBound = false;
+				frameScrollBound = false;
+				applyTheme();
+				bindFrameClose();
+				bindFrameScroll();
+				setTimeout(updateNextChapterVisibility, 150);
+			});
+			initSidebarResize();
 			bindFrameClose();
-		});
-		bindFrameClose();
-		applyTheme();
+			bindFrameScroll();
+			applyTheme();
 		document.querySelectorAll('.reader-toc .group-section').forEach(function (section) {
 			var hoverTimer = null;
 			section.querySelector('.group-header').addEventListener('click', function (e) {
@@ -803,6 +1191,8 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(`<!DOCTYP
 				section.classList.remove('hover-open');
 			});
 		});
+      localStorage.setItem('lastRead', JSON.stringify({path: '{{.EncodedPath}}', chapter: {{.CurrentIndex}}, title: '{{.Title}}'}));
+      window.openPreferences = function() { window.location.href = '/?openPrefs=1'; };
 	})();
   </script>
 </body>
@@ -840,7 +1230,7 @@ type readerCache struct {
 	errors  map[string]error
 }
 
-func Serve(addr, root string, lib model.Library, static fs.FS) {
+func NewHandler(root string, lib model.Library, fonts []string) http.Handler {
 	titleIndex := make(map[string]string, len(lib.Books))
 	authorIndex := make(map[string]string, len(lib.Books))
 	cache := &readerCache{
@@ -857,8 +1247,12 @@ func Serve(addr, root string, lib model.Library, static fs.FS) {
 
 	mux.HandleFunc("/api/library", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
-		w.Header().Set("Access-Control-Allow-Origin", "*")
 		json.NewEncoder(w).Encode(lib)
+	})
+
+	mux.HandleFunc("/api/fonts", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		json.NewEncoder(w).Encode(fonts)
 	})
 
 	mux.HandleFunc("/cover/", func(w http.ResponseWriter, r *http.Request) {
@@ -923,14 +1317,7 @@ func Serve(addr, root string, lib model.Library, static fs.FS) {
 		}
 	})
 
-	stripped, err := fs.Sub(static, "static")
-	if err != nil {
-		log.Fatal(err)
-	}
-	mux.Handle("/", http.FileServer(http.FS(stripped)))
-
-	log.Printf("metabrowser listening on http://%s", addr)
-	log.Fatal(http.ListenAndServe(addr, mux))
+	return mux
 }
 
 func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, title, meta string, cache *readerCache) {
@@ -1503,7 +1890,6 @@ func extractChapterTitle(chapterHTML []byte) string {
 	return ""
 }
 
-
 func injectReaderBaseline(doc *xhtml.Node) {
 	head := findHTMLNode(doc, "head")
 	if head == nil {
@@ -1516,7 +1902,7 @@ func injectReaderBaseline(doc *xhtml.Node) {
 	}
 	script.AppendChild(&xhtml.Node{
 		Type: xhtml.TextNode,
-		Data: `(function(){var bg=localStorage.getItem('reader:bg')||'#073541';var fg=localStorage.getItem('reader:fg')||'#fdf6e2';var size=localStorage.getItem('reader:size')||'16px';document.documentElement.style.setProperty('--reader-bg',bg);document.documentElement.style.setProperty('--reader-fg',fg);document.documentElement.style.setProperty('--reader-size',size);}());`,
+		Data: `(function(){var bg=localStorage.getItem('reader:bg')||'#073541';var fg=localStorage.getItem('reader:fg')||'#fdf6e2';var size=localStorage.getItem('reader:size')||'16px';var padX=localStorage.getItem('reader:px')||'72px';document.documentElement.style.setProperty('--reader-bg',bg);document.documentElement.style.setProperty('--reader-fg',fg);document.documentElement.style.setProperty('--reader-size',size);document.documentElement.style.setProperty('--reader-pad-x',padX);}());`,
 	})
 	head.AppendChild(script)
 
@@ -1530,6 +1916,7 @@ func injectReaderBaseline(doc *xhtml.Node) {
   --reader-bg: #073541;
   --reader-fg: #fdf6e2;
   --reader-size: 16px;
+  --reader-pad-x: 72px;
 }
 html {
   background: var(--reader-bg);
@@ -1541,7 +1928,7 @@ body {
   color: var(--reader-fg);
   box-sizing: border-box;
   min-height: 100vh;
-  padding: 3rem 3.5rem 4rem;
+  padding: 3rem var(--reader-pad-x) 4rem;
 }
 ::selection {
   background: rgba(39, 139, 211, 0.35);

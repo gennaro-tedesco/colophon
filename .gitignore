@@ -1,2 +1,5 @@
 AGENTS.md
 metabrowser
+frontend/node_modules/
+build/*
+!build/appicon.png

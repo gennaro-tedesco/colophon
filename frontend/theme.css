@@ -26,11 +26,11 @@
   --flamingo:   #f254a1;
   --rosewater:  #ff9b99;
 
-  --fs-xs:   9px;
-  --fs-sm:   11px;
-  --fs-base: 14px;
-  --fs-md:   16px;
-  --fs-lg:   22px;
+  --fs-xs:   15px;
+  --fs-sm:   18px;
+  --fs-base: 20px;
+  --fs-md:   23px;
+  --fs-lg:   33px;
 
   --font-serif: 'Lexend', sans-serif;
   --font-sans:  'DM Sans', system-ui, sans-serif;

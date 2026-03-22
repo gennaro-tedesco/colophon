@@ -1,0 +1,11 @@
+{
+  "$schema": "https://wails.io/schemas/config.v2.json",
+  "name": "metabrowser",
+  "outputfilename": "metabrowser",
+  "frontend:dir": "frontend",
+  "frontend:install": "npm install --prefix .",
+  "frontend:build": "",
+  "author": {
+    "name": "gennarotedesco"
+  }
+}

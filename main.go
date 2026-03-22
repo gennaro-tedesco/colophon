@@ -2,44 +2,59 @@ package main
 
 import (
 	"embed"
-	"fmt"
+	"io/fs"
 	"log"
 	"os"
 	"path/filepath"
 
-	"metabrowser/scanner"
-	"metabrowser/server"
+	"github.com/wailsapp/wails/v2"
+	"github.com/wailsapp/wails/v2/pkg/menu"
+	"github.com/wailsapp/wails/v2/pkg/menu/keys"
+	"github.com/wailsapp/wails/v2/pkg/options"
+	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
-//go:embed static
-var static embed.FS
+//go:embed all:frontend
+var assets embed.FS
 
 func main() {
-	if len(os.Args) < 2 {
-		fmt.Fprintf(os.Stderr, "usage: %s <library-path>\n", filepath.Base(os.Args[0]))
-		os.Exit(1)
+	var root string
+	if len(os.Args) >= 2 {
+		abs, err := filepath.Abs(os.Args[1])
+		if err != nil {
+			log.Fatalf("invalid path: %v", err)
+		}
+		root = abs
 	}
 
-	root, err := filepath.Abs(os.Args[1])
+	app := NewApp(root)
+
+	frontendAssets, err := fs.Sub(assets, "frontend")
 	if err != nil {
-		log.Fatalf("invalid path: %v", err)
+		log.Fatal(err)
 	}
 
-	if _, err := os.Stat(root); err != nil {
-		log.Fatalf("cannot access %s: %v", root, err)
-	}
+	appMenu := menu.NewMenu()
+	mb := appMenu.AddSubmenu("metabrowser")
+	mb.AddText("Quit metabrowser", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+		runtime.Quit(app.ctx)
+	})
 
-	log.Printf("scanning %s ...", root)
-	lib, err := scanner.Scan(root)
-	if err != nil {
-		log.Fatalf("scan failed: %v", err)
+	if err := wails.Run(&options.App{
+		Title:  "metabrowser",
+		Width:  1280,
+		Height: 860,
+		Menu:   appMenu,
+		AssetServer: &assetserver.Options{
+			Assets:  frontendAssets,
+			Handler: app,
+		},
+		OnStartup: app.startup,
+		Bind: []interface{}{
+			app,
+		},
+	}); err != nil {
+		log.Fatal(err)
 	}
-	log.Printf("found %d books", len(lib.Books))
-
-	addr := "localhost:7070"
-	if len(os.Args) >= 3 {
-		addr = os.Args[2]
-	}
-
-	server.Serve(addr, root, lib, static)
 }

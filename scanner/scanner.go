@@ -7,62 +7,70 @@ import (
 	"sort"
 	"strings"
 	"sync"
+	"time"
 
 	"metabrowser/model"
 )
 
-func Scan(root string) (model.Library, error) {
-	var epubs []string
-	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+type ScanResult struct {
+	ModTime time.Time
+	Book    model.Book
+}
+
+// Stream walks root for EPUB files and sends parsed results to out as they complete.
+// It closes out when all workers finish. The caller must drain out.
+func Stream(root string, out chan<- ScanResult) error {
+	type fileInfo struct {
+		path    string
+		modTime time.Time
+	}
+	var files []fileInfo
+	if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
 			return nil
 		}
 		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ".epub" {
-			epubs = append(epubs, path)
+			info, err2 := d.Info()
+			if err2 != nil {
+				return nil
+			}
+			files = append(files, fileInfo{path, info.ModTime()})
 		}
 		return nil
-	})
-	if err != nil {
-		return model.Library{}, err
+	}); err != nil {
+		close(out)
+		return err
 	}
 
-	numWorkers := runtime.NumCPU()
-	jobs := make(chan string, len(epubs))
-	results := make(chan model.Book, len(epubs))
+	type job struct {
+		path    string
+		modTime time.Time
+	}
+	jobs := make(chan job, len(files))
+	for _, f := range files {
+		jobs <- job{f.path, f.modTime}
+	}
+	close(jobs)
 
 	var wg sync.WaitGroup
-	for i := 0; i < numWorkers; i++ {
+	for i := 0; i < runtime.NumCPU(); i++ {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for path := range jobs {
-				if book, ok := parseBook(root, path); ok {
-					results <- book
+			for j := range jobs {
+				if book, ok := parseBook(root, j.path); ok {
+					out <- ScanResult{ModTime: j.modTime, Book: book}
 				}
 			}
 		}()
 	}
 
-	for _, e := range epubs {
-		jobs <- e
-	}
-	close(jobs)
-
 	go func() {
 		wg.Wait()
-		close(results)
+		close(out)
 	}()
 
-	var books []model.Book
-	for b := range results {
-		books = append(books, b)
-	}
-
-	sort.Slice(books, func(i, j int) bool {
-		return books[i].Title < books[j].Title
-	})
-
-	return buildLibrary(books), nil
+	return nil
 }
 
 func parseBook(root, path string) (model.Book, bool) {
@@ -93,7 +101,7 @@ func parseBook(root, path string) (model.Book, bool) {
 	}, true
 }
 
-func buildLibrary(books []model.Book) model.Library {
+func BuildLibrary(books []model.Book) model.Library {
 	langSet := map[string]struct{}{}
 	seriesSet := map[string]struct{}{}
 	tagSet := map[string]struct{}{}
