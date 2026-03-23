@@ -101,13 +101,14 @@ func (a *App) getFonts() []string {
 func (a *App) streamScan(dir string) {
 	fonts := a.getFonts()
 	cache := loadBookCache(dir)
-	newCache := make(bookCache, len(cache))
+	newCache := make(bookCache)
+	booksByPath := make(map[string]model.Book, len(cache))
 
 	// Phase 1 — emit cached books immediately
 	cached := make([]model.Book, 0, len(cache))
 	for _, entry := range cache {
 		cached = append(cached, entry.Book)
-		newCache[entry.Book.Path] = entry
+		booksByPath[entry.Book.Path] = entry.Book
 		runtime.EventsEmit(a.ctx, "book:add", entry.Book)
 	}
 	if len(cached) > 0 {
@@ -129,36 +130,38 @@ func (a *App) streamScan(dir string) {
 		runtime.EventsEmit(a.ctx, "scan:done", lib)
 		return
 	}
-	a.mu.Lock()
-	indexByPath := make(map[string]int, len(a.lib.Books))
-	for i, b := range a.lib.Books {
-		indexByPath[b.Path] = i
-	}
-	a.mu.Unlock()
 	for r := range results {
 		newCache[r.Book.Path] = cacheEntry{ModTime: r.ModTime, Book: r.Book}
+		booksByPath[r.Book.Path] = r.Book
 		old, inCache := cache[r.Book.Path]
 		if inCache && old.ModTime.Equal(r.ModTime) {
 			continue // already emitted
 		}
-		a.mu.Lock()
-		if i, ok := indexByPath[r.Book.Path]; ok {
-			a.lib.Books[i] = r.Book
-		} else {
-			indexByPath[r.Book.Path] = len(a.lib.Books)
-			a.lib.Books = append(a.lib.Books, r.Book)
+		currentBooks := make([]model.Book, 0, len(booksByPath))
+		for _, book := range booksByPath {
+			currentBooks = append(currentBooks, book)
 		}
+		sort.Slice(currentBooks, func(i, j int) bool { return currentBooks[i].Title < currentBooks[j].Title })
+		currentLib := scanner.BuildLibrary(currentBooks)
+		a.mu.Lock()
+		a.root = dir
+		a.lib = currentLib
+		a.handler = server.NewHandler(dir, currentLib, fonts, a.cfg.Theme)
 		a.mu.Unlock()
 		runtime.EventsEmit(a.ctx, "book:add", r.Book)
 	}
 
 	// Phase 3 — finalize
+	finalBooks := make([]model.Book, 0, len(newCache))
+	for _, entry := range newCache {
+		finalBooks = append(finalBooks, entry.Book)
+	}
+	sort.Slice(finalBooks, func(i, j int) bool { return finalBooks[i].Title < finalBooks[j].Title })
+	finalLib := scanner.BuildLibrary(finalBooks)
 	a.mu.Lock()
-	sort.Slice(a.lib.Books, func(i, j int) bool { return a.lib.Books[i].Title < a.lib.Books[j].Title })
-	a.lib = scanner.BuildLibrary(a.lib.Books)
+	a.lib = finalLib
 	a.root = dir
 	a.handler = server.NewHandler(dir, a.lib, fonts, a.cfg.Theme)
-	finalLib := a.lib
 	a.mu.Unlock()
 
 	saveBookCache(dir, newCache)

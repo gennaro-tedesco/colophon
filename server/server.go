@@ -29,6 +29,12 @@ import (
 //go:embed reader_shell.html
 var readerShellHTML string
 
+//go:embed reader.css
+var readerCSS string
+
+//go:embed reader.js
+var readerJS string
+
 var readerShellTmpl = template.Must(template.New("reader-shell").Parse(readerShellHTML))
 
 type readerShellData struct {
@@ -49,12 +55,18 @@ type readerShellData struct {
 type chapterDoc struct {
 	Path  string
 	Title string
+	Text  string
 }
 
 type readerBookData struct {
 	Spine    []string
 	Chapters []chapterDoc
 	TOC      []scanner.TOCEntry
+}
+
+type readerSearchMatch struct {
+	Chapter int    `json:"chapter"`
+	Title   string `json:"title"`
 }
 
 type readerCache struct {
@@ -89,6 +101,39 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 	mux.HandleFunc("/api/fonts", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(fonts); err != nil {
+			return
+		}
+	})
+
+	mux.HandleFunc("/reader-assets/reader.css", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "text/css; charset=utf-8")
+		if _, err := io.WriteString(w, readerCSS); err != nil {
+			return
+		}
+	})
+
+	mux.HandleFunc("/reader-assets/reader.js", func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
+		if _, err := io.WriteString(w, readerJS); err != nil {
+			return
+		}
+	})
+
+	mux.HandleFunc("/reader-search/", func(w http.ResponseWriter, r *http.Request) {
+		epubRel := strings.TrimPrefix(r.URL.Path, "/reader-search/")
+		absEpub, ok := resolveEpubPath(root, epubRel)
+		if !ok {
+			http.NotFound(w, r)
+			return
+		}
+		book, err := cache.load(absEpub)
+		if err != nil {
+			http.NotFound(w, r)
+			return
+		}
+		query := strings.TrimSpace(r.URL.Query().Get("q"))
+		w.Header().Set("Content-Type", "application/json")
+		if err := json.NewEncoder(w).Encode(searchReaderBook(book, query)); err != nil {
 			return
 		}
 	})
@@ -403,16 +448,21 @@ func loadChapterMetadata(r *zip.Reader, spine []string, tocLabels map[string]str
 	chapters := make([]chapterDoc, 0, len(spine))
 	for i, chapterPath := range spine {
 		title := ""
+		text := ""
 		if tocLabels != nil {
 			title = normalizeWhitespace(tocLabels[chapterPath])
 		}
 		data, err := readZipEntry(r, chapterPath)
-		if err == nil && title == "" {
-			title = extractChapterTitle(data)
+		if err == nil {
+			if title == "" {
+				title = extractChapterTitle(data)
+			}
+			text = extractChapterText(data)
 		}
 		chapters = append(chapters, chapterDoc{
 			Path:  chapterPath,
 			Title: fallbackChapterTitle(title, i),
+			Text:  text,
 		})
 	}
 	return chapters
@@ -511,6 +561,31 @@ func fallbackTOC(entries []scanner.TOCEntry, spine []string, chapters []chapterD
 		})
 	}
 	return fallback
+}
+
+func searchReaderBook(book readerBookData, query string) []readerSearchMatch {
+	query = normalizeWhitespace(query)
+	if query == "" {
+		return []readerSearchMatch{}
+	}
+	loweredQuery := strings.ToLower(query)
+	var matches []readerSearchMatch
+	for chapterIndex, chapter := range book.Chapters {
+		loweredText := strings.ToLower(chapter.Text)
+		offset := 0
+		for offset < len(loweredText) {
+			matchIndex := strings.Index(loweredText[offset:], loweredQuery)
+			if matchIndex == -1 {
+				break
+			}
+			matches = append(matches, readerSearchMatch{
+				Chapter: chapterIndex,
+				Title:   chapter.Title,
+			})
+			offset += matchIndex + len(loweredQuery)
+		}
+	}
+	return matches
 }
 
 func flattenTOCLabels(entries []scanner.TOCEntry) map[string]string {
@@ -727,6 +802,18 @@ func extractChapterTitle(chapterHTML []byte) string {
 	}
 
 	return ""
+}
+
+func extractChapterText(chapterHTML []byte) string {
+	doc, err := xhtml.Parse(bytes.NewReader(chapterHTML))
+	if err != nil {
+		return ""
+	}
+	body := findHTMLNode(doc, "body")
+	if body == nil {
+		return ""
+	}
+	return normalizeWhitespace(nodeText(body))
 }
 
 func injectReaderBaseline(doc *xhtml.Node) {

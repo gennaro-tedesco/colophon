@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>{{.Title}}</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
+    rel="stylesheet">
   <link rel="stylesheet" href="/theme.css">
   <link rel="stylesheet" href="/themes/solarized-dark.css">
   <link rel="stylesheet" href="/themes/solarized-light.css">
@@ -17,1474 +20,212 @@
   <link rel="stylesheet" href="/themes/tokyonight.css">
   <link rel="stylesheet" href="/themes/kanagawa.css">
   <link rel="stylesheet" href="/themes/rose-pine.css">
-  <script>
-    fetch('/api/config').then(function(r){return r.json();}).then(function(cfg){
-      var root = document.documentElement;
-      if (cfg.theme) root.setAttribute('data-theme', cfg.theme);
-      if (cfg.uiFontSize > 0) {
-        var b = cfg.uiFontSize;
-        root.style.setProperty('--fs-xs',   Math.round(b*0.75)+'px');
-        root.style.setProperty('--fs-sm',   Math.round(b*0.9)+'px');
-        root.style.setProperty('--fs-base', b+'px');
-        root.style.setProperty('--fs-md',   Math.round(b*1.15)+'px');
-        root.style.setProperty('--fs-lg',   Math.round(b*1.65)+'px');
-      }
-      if (cfg.uiFontFamily) {
-        root.style.setProperty('--font-sans',  "'"+cfg.uiFontFamily+"', system-ui, sans-serif");
-        root.style.setProperty('--font-serif', "'"+cfg.uiFontFamily+"', sans-serif");
-      }
-    });
-  </script>
-  <style>
-    :root {
-      --fs-xs: 15px; --fs-sm: 18px; --fs-base: 20px; --fs-md: 23px; --fs-lg: 33px; --sidebar-w: 280px; --reader-shell-fg: var(--text); --reader-progress-book: var(--text); --reader-progress-chapter: color-mix(in srgb, var(--text) 60%, var(--base));
-    }
-    *, *::before, *::after { box-sizing: border-box; }
-    html, body {
-      height: 100%;
-      margin: 0;
-      background: var(--base);
-      color: var(--text);
-      font-family: var(--font-sans);
-      font-size: var(--fs-base);
-      line-height: 1.5;
-    }
-    body {
-      display: grid;
-      grid-template-columns: var(--sidebar-w) 10px minmax(0, 1fr);
-      overflow: hidden;
-    }
-    .reader-sidebar {
-      background: var(--mantle);
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-      position: relative;
-    }
-    .reader-sidebar-resizer {
-      cursor: col-resize;
-      background: transparent;
-      touch-action: none;
-    }
-    .reader-sidebar-toggle {
-      position: absolute;
-      bottom: 12px;
-      left: 12px;
-      width: 42px;
-      height: 42px;
-      border: none;
-      background: transparent;
-      color: var(--text);
-      cursor: pointer;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 28px;
-      line-height: 1;
-      z-index: 1;
-      opacity: 1;
-      pointer-events: auto;
-      transition: color 0.15s ease;
-    }
-    .reader-sidebar-toggle:hover {
-      color: var(--text);
-    }
-    body.sidebar-collapsed .reader-sidebar-header,
-    body.sidebar-collapsed .reader-toc {
-      display: none;
-    }
-    body.sidebar-collapsed .reader-sidebar {
-      overflow: visible;
-    }
-    .reader-sidebar-header {
-      padding: 24px 20px 18px;
-      border-bottom: 1px solid color-mix(in srgb, var(--surface1) 35%, transparent);
-    }
-    .reader-book-title {
-      font-family: var(--font-serif);
-      font-size: var(--fs-lg);
-      color: var(--text);
-      line-height: 1.35;
-    }
-    .reader-book-meta {
-      margin-top: 8px;
-      color: var(--subtext0);
-      font-size: var(--fs-base);
-    }
-    .reader-library-action {
-      position: relative;
-      background: var(--surface0);
-      border: 1px solid var(--surface1);
-      border-radius: 4px;
-      color: var(--text);
-      font-size: 22px;
-      padding: 2px 6px;
-      cursor: pointer;
-      transition: border-color 0.15s, color 0.15s, background 0.15s;
-      margin: 0;
-    }
-    .reader-library-action svg {
-      width: var(--fs-md);
-      height: var(--fs-md);
-    }
-    .reader-library-action:hover {
-      color: var(--mauve);
-      background: color-mix(in srgb, var(--mauve) 12%, var(--surface0));
-      border-color: var(--mauve);
-    }
-    .reader-library-action::after {
-      content: attr(data-tooltip);
-      position: absolute;
-      top: calc(100% + 10px);
-      left: 50%;
-      opacity: 0;
-      pointer-events: none;
-      white-space: nowrap;
-      color: var(--text);
-      font-family: var(--font-mono);
-      font-size: var(--fs-xs);
-      line-height: 1.2;
-      z-index: 8;
-    }
-    .reader-library-action:hover::after,
-    .reader-library-action:focus-visible::after {
-      opacity: 1;
-      animation: tooltip-drop 0.18s ease-out forwards;
-    }
-    @keyframes tooltip-drop {
-      from {
-        opacity: 0;
-        transform: translate(-50%, -8px);
-      }
-      to {
-        opacity: 1;
-        transform: translate(-50%, 0);
-      }
-    }
-    .reader-sidebar-actions {
-      display: flex;
-      gap: 10px;
-      margin-top: 16px;
-      align-items: center;
-    }
-    .reader-sidebar-spacer {
-      flex: 1;
-    }
-    .reader-nav-zone {
-      position: absolute;
-      bottom: 0;
-      z-index: 3;
-      width: min(180px, 24%);
-      height: 100%;
-      display: flex;
-      align-items: flex-end;
-      pointer-events: none;
-    }
-    .reader-nav-zone.prev {
-      left: 0;
-      justify-content: flex-start;
-      padding: 0 0 24px 24px;
-    }
-    .reader-nav-zone.next {
-      right: 0;
-      justify-content: flex-end;
-      padding: 0 24px 24px 0;
-    }
-    .reader-bottom-nav {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 40px;
-      height: 40px;
-      text-decoration: none;
-      font-family: var(--font-mono);
-      font-size: calc(var(--fs-lg) * 0.9);
-      line-height: 1;
-      color: var(--reader-shell-fg);
-      opacity: 0;
-      pointer-events: none;
-      transform: translateY(12px);
-      transition: color 0.15s ease, opacity 0.18s ease, transform 0.18s ease;
-    }
-    .reader-bottom-nav:link,
-    .reader-bottom-nav:visited,
-    .reader-bottom-nav:active,
-    .reader-bottom-nav:focus {
-      color: var(--reader-shell-fg);
-      text-decoration: none;
-    }
-    .reader-bottom-nav:hover,
-    .reader-bottom-nav:focus-visible {
-      color: var(--mauve);
-    }
-    .reader-frame-stage.nav-hover-prev .reader-nav-zone.prev .reader-bottom-nav,
-    .reader-frame-stage.nav-hover-next .reader-nav-zone.next .reader-bottom-nav,
-    .reader-nav-zone:focus-within .reader-bottom-nav {
-      opacity: 1;
-      pointer-events: auto;
-      transform: translateY(0);
-    }
-    .reader-toc {
-      flex: 1;
-      padding: 14px 0;
-      overflow-y: auto;
-      scrollbar-width: thin;
-      scrollbar-color: var(--surface1) transparent;
-    }
-    .group-section {
-      margin-bottom: 4px;
-    }
-    .group-header {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 8px 20px;
-      cursor: pointer;
-      user-select: none;
-      color: var(--overlay1);
-      font-size: var(--fs-md);
-      font-weight: 500;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      transition: color 0.15s;
-    }
-    .group-header:hover {
-      color: var(--blue);
-    }
-    .group-chevron {
-      font-size: var(--fs-md);
-      color: var(--lavender);
-      transition: transform 0.2s;
-    }
-    .group-section.open .group-chevron,
-    .group-section.hover-open .group-chevron {
-      transform: rotate(90deg);
-    }
-    .group-items {
-      display: grid;
-      grid-template-rows: 0fr;
-      transition: grid-template-rows 0.22s ease;
-    }
-    .group-section.open .group-items,
-    .group-section.hover-open .group-items {
-      grid-template-rows: 1fr;
-    }
-    .group-items-inner {
-      overflow: hidden;
-      display: flex;
-      flex-direction: column;
-    }
-    .group-item {
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: 6px 20px 6px 28px;
-      cursor: pointer;
-      color: var(--subtext0);
-      font-size: var(--fs-md);
-      transition: color 0.12s, background 0.12s;
-      border-left: 2px solid transparent;
-      text-decoration: none;
-    }
-    .group-item:link,
-    .group-item:visited {
-      color: var(--subtext0);
-      text-decoration: none;
-    }
-    .group-item:hover,
-    .group-item:visited:hover {
-      color: var(--text);
-      background: color-mix(in srgb, var(--teal) 10%, var(--mantle));
-      text-decoration: none;
-    }
-    .group-item.active {
-      color: var(--text);
-      border-left-color: var(--reader-shell-fg);
-      background: color-mix(in srgb, var(--reader-shell-fg) 14%, transparent);
-      box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--reader-shell-fg) 18%, transparent);
-      font-weight: 500;
-    }
-    .group-header-link {
-      flex: 1;
-      color: inherit;
-      text-decoration: none;
-      min-width: 0;
-    }
-    .group-header-link:link,
-    .group-header-link:visited {
-      color: inherit;
-      text-decoration: none;
-    }
-    .group-item-label {
-      display: block;
-      min-width: 0;
-    }
-    .reader-main {
-      min-width: 0;
-      display: flex;
-      flex-direction: column;
-      background:
-        radial-gradient(circle at top left, color-mix(in srgb, var(--teal) 12%, transparent), transparent 32%),
-        linear-gradient(180deg, color-mix(in srgb, var(--mantle) 28%, var(--base)), var(--base));
-    }
-    .reader-toolbar {
-      display: flex;
-      align-items: center;
-      gap: 16px;
-      padding: 18px 24px;
-      border-bottom: 1px solid color-mix(in srgb, var(--surface1) 35%, transparent);
-      background: color-mix(in srgb, var(--base) 82%, transparent);
-    }
-    .reader-toolbar-title {
-      flex: 1 1 auto;
-      min-width: 0;
-    }
-    .reader-toolbar-heading {
-      display: flex;
-      align-items: baseline;
-      gap: 10px;
-      min-width: 0;
-      color: var(--text);
-      font-family: var(--font-serif);
-      font-size: var(--fs-lg);
-      line-height: 1.25;
-      white-space: nowrap;
-      overflow: hidden;
-      text-overflow: ellipsis;
-    }
-    .reader-progress-badge {
-      flex: 0 0 auto;
-      font-family: var(--font-mono);
-      font-size: var(--fs-sm);
-      color: var(--yellow);
-      white-space: nowrap;
-    }
-    .reader-progress-stack {
-      margin-top: 10px;
-      display: grid;
-      gap: 5px;
-    }
-    .reader-progress-row {
-      width: 100%;
-    }
-    .reader-progress-track {
-      width: 100%;
-      height: 4px;
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--surface1) 65%, var(--mantle));
-      overflow: hidden;
-    }
-    .reader-progress-fill {
-      width: 0%;
-      height: 100%;
-      border-radius: inherit;
-      transition: width 0.12s ease;
-    }
-    .reader-progress-fill.chapter {
-      background: var(--reader-progress-chapter);
-    }
-    .reader-progress-fill.book {
-      background: var(--reader-progress-book);
-    }
-	    .reader-frame-wrap {
-	      position: relative;
-	      flex: 1;
-	      min-height: 0;
-	      padding: 20px 24px 88px;
-	    }
-	    .reader-frame-stage {
-	      position: relative;
-	      width: 100%;
-	      height: 100%;
-	    }
-	    .reader-page-tools {
-      position: absolute;
-      top: 32px;
-      left: 36px;
-      z-index: 2;
-      display: flex;
-      align-items: flex-start;
-    }
-    .reader-menu-toggle {
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-      width: 56px;
-      height: 56px;
-      border: none;
-      background: transparent;
-      color: var(--reader-shell-fg);
-      font-size: 44px;
-      cursor: pointer;
-      padding: 0;
-      transition: transform 0.2s ease, color 0.15s ease;
-      transform-origin: center;
-    }
-    .reader-menu-toggle,
-    .reader-menu-toggle:hover,
-    .reader-menu-toggle:active,
-    .reader-menu-toggle:focus {
-      color: var(--reader-shell-fg);
-    }
-    .reader-menu-toggle.rotating {
-      transform: rotate(180deg);
-    }
-    .reader-menu-panel {
-      display: none;
-    }
-    .reader-menu-panel.open {
-      display: block;
-    }
-    .reader-page-tools.open .reader-menu-toggle {
-      display: none;
-    }
-    .reader-controls {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-      flex-wrap: wrap;
-    }
-    .reader-control-group {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      padding: 8px 10px;
-      border: 1px solid color-mix(in srgb, var(--surface1) 55%, transparent);
-      border-radius: 999px;
-      background: color-mix(in srgb, var(--base) 72%, transparent);
-      backdrop-filter: blur(10px);
-    }
-    .reader-control-symbol {
-      color: var(--yellow);
-      line-height: 1;
-      display: flex;
-      align-items: center;
-    }
-    .reader-control-symbol svg {
-      width: var(--fs-md);
-      height: var(--fs-md);
-      flex: 0 0 auto;
-    }
-	.reader-control-bubble {
-		position: relative;
-		display: inline-flex;
-		align-items: center;
-		justify-content: center;
-		min-width: 26px;
-		min-height: 26px;
-	}
-	    .reader-current-swatch,
-	    .reader-current-line,
-	    .reader-current-size {
-	      position: relative;
-	      z-index: 1;
-	      width: 26px;
-		height: 26px;
-		border-radius: 999px;
-		border: 1px solid color-mix(in srgb, var(--surface1) 75%, transparent);
-      flex: 0 0 auto;
-    }
-	    .reader-current-line,
-	    .reader-current-size {
-	      width: auto;
-	      min-width: 32px;
-	      padding: 0 7px;
-      background: color-mix(in srgb, var(--surface0) 55%, transparent);
-      color: var(--text);
-      font-family: var(--font-mono);
-	      font-size: var(--fs-sm);
-	      line-height: 26px;
-	      text-align: center;
-	    }
-	    .reader-current-size {
-	      font-size: var(--fs-sm);
-	      line-height: 26px;
-	    }
-	.reader-bubble-menu {
-		position: absolute;
-		top: 0;
-		left: 0;
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		gap: 4px;
-		width: 34px;
-		max-height: 0;
-		padding: 0;
-		border-radius: 999px;
-		overflow: hidden;
-		background: color-mix(in srgb, var(--base) 92%, transparent);
-		opacity: 0;
-		pointer-events: none;
-		transform: translate(-50%, 0) scaleY(0.82);
-		transform-origin: top center;
-		transition: max-height 0.14s ease, opacity 0.14s ease, padding 0.14s ease, transform 0.14s ease;
-	}
-	.reader-control-bubble.open .reader-bubble-menu,
-	.reader-control-group:focus-within .reader-bubble-menu {
-		max-height: 180px;
-		padding: 24px 4px 4px;
-		opacity: 1;
-		pointer-events: auto;
-		border: 1px solid color-mix(in srgb, var(--surface1) 75%, transparent);
-		transform: translate(-50%, 0) scaleY(1);
-	}
-	    .reader-control-bubble.open .reader-current-swatch,
-	    .reader-control-group:focus-within .reader-current-swatch,
-	    .reader-control-bubble.open .reader-current-line,
-	    .reader-control-group:focus-within .reader-current-line,
-	    .reader-control-bubble.open .reader-current-size,
-	    .reader-control-group:focus-within .reader-current-size {
-	      opacity: 0;
-	    }
-	    .reader-swatch-choice {
-	      appearance: none;
-	      width: 22px;
-	      height: 22px;
-	      border: none;
-	      border-radius: 999px;
-	      padding: 0;
-	      cursor: pointer;
-	      flex: 0 0 auto;
-	      transition: transform 0.12s ease, box-shadow 0.12s ease;
-	    }
-	    .reader-swatch-choice:hover {
-	      transform: scale(1.08);
-	      box-shadow: 0 0 0 2px color-mix(in srgb, var(--mauve) 35%, transparent);
-	    }
-	    .reader-choice-active {
-	      outline: 2px solid var(--text);
-	      outline-offset: 1px;
-	    }
-	    .reader-slider {
-	      writing-mode: vertical-lr;
-	      direction: rtl;
-	      appearance: slider-vertical;
-	      width: 26px;
-	      height: 110px;
-	      cursor: pointer;
-	      accent-color: var(--blue);
-	      background: transparent;
-	      margin: 0;
-	      padding: 0;
-	    }
-	    .reader-font-menu {
-	      width: 180px;
-	      overflow-y: auto;
-	      max-height: 160px;
-	      border-radius: 8px;
-	      align-items: stretch;
-	    }
-	    .reader-font-choice {
-	      display: block;
-	      width: 100%;
-	      text-align: left;
-	      background: none;
-	      border: none;
-	      color: var(--text);
-	      font-size: 13px;
-	      padding: 3px 6px;
-	      cursor: pointer;
-	      border-radius: 3px;
-	      white-space: nowrap;
-	      outline: none;
-	    }
-	    .reader-font-choice:hover {
-	      background: var(--surface1);
-	    }
-	    .reader-font-choice.reader-choice-active {
-	      outline: none;
-	      color: var(--blue);
-	    }
-	    .reader-frame {
-	      width: 100%;
-	      height: 100%;
-	      min-height: 400px;
-	      border: 1px solid color-mix(in srgb, var(--surface1) 45%, transparent);
-	      border-radius: 12px;
-	      background: var(--base);
-	      box-shadow: 0 24px 80px color-mix(in srgb, black 20%, transparent);
-	    }
-	    @media (max-width: 920px) {
-      body {
-        grid-template-columns: 1fr;
-        grid-template-rows: auto minmax(0, 1fr);
-      }
-      .reader-sidebar-resizer {
-        display: none;
-      }
-      .reader-sidebar {
-        border-right: none;
-        border-bottom: 1px solid color-mix(in srgb, var(--surface1) 55%, transparent);
-        max-height: 42vh;
-      }
-      .reader-frame-wrap {
-        padding: 16px;
-      }
-      .reader-nav-zone {
-        width: min(120px, 26%);
-        height: 100%;
-      }
-      .reader-nav-zone.prev {
-        padding: 0 0 16px 8px;
-      }
-      .reader-nav-zone.next {
-        padding: 0 8px 16px 0;
-      }
-      .reader-bottom-nav {
-        width: 36px;
-        height: 36px;
-      }
-      .reader-page-tools {
-        top: 24px;
-        left: 24px;
-      }
-    }
-  </style>
+  <link rel="stylesheet" href="/reader-assets/reader.css">
 </head>
-<body>
+
+<body data-reader-theme="{{.Theme}}" data-reader-encoded-path="{{.EncodedPath}}"
+  data-reader-current-index="{{.CurrentIndex}}" data-reader-chapter-count="{{.ChapterCount}}"
+  data-reader-title="{{.Title}}">
   <aside class="reader-sidebar">
-    <button id="reader-sidebar-toggle" class="reader-sidebar-toggle" type="button" aria-label="Collapse sidebar">‹</button>
+    <button id="reader-sidebar-toggle" class="reader-sidebar-toggle" type="button"
+      aria-label="Collapse sidebar">‹</button>
     <div class="reader-sidebar-header">
       <div class="reader-book-title">{{.Title}}</div>
-      {{if .Meta}}<div class="reader-book-meta">{{.Meta}}</div>{{end}}
+      {{if .Meta}}
+      <div class="reader-book-meta">{{.Meta}}</div>{{end}}
       <div class="reader-sidebar-actions">
-        <button type="button" class="reader-library-action" aria-label="Library" data-tooltip="library" onclick="window.location.href='/'"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6 4 14"/><path d="M12 6v14"/><path d="M8 8v12"/><path d="M4 4v16"/></svg></button>
+        <button type="button" class="reader-library-action" aria-label="Library"
+          data-tooltip="library" onclick="window.location.href='/'"><svg
+            xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24"
+            fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
+            stroke-linejoin="round">
+            <path d="m16 6 4 14" />
+            <path d="M12 6v14" />
+            <path d="M8 8v12" />
+            <path d="M4 4v16" />
+          </svg></button>
       </div>
     </div>
-	    <nav id="reader-toc" class="reader-toc">{{.TOCHTML}}</nav>
+    <nav id="reader-toc" class="reader-toc">{{.TOCHTML}}</nav>
   </aside>
   <div id="reader-sidebar-resizer" class="reader-sidebar-resizer" aria-hidden="true"></div>
   <main class="reader-main">
     <div class="reader-toolbar">
       <div class="reader-toolbar-title">
-        <div class="reader-toolbar-heading"><span class="reader-toolbar-chapter">{{.CurrentChapter}}</span><span class="reader-progress-badge">{{.Progress}}</span></div>
+        <div class="reader-toolbar-heading"><span
+            class="reader-toolbar-chapter">{{.CurrentChapter}}</span><span
+            class="reader-progress-badge">{{.Progress}}</span></div>
         <div class="reader-progress-stack" aria-hidden="true">
           <div class="reader-progress-row">
-            <div class="reader-progress-track"><div id="reader-chapter-progress-fill" class="reader-progress-fill chapter"></div></div>
+            <div class="reader-progress-track">
+              <div id="reader-chapter-progress-fill" class="reader-progress-fill chapter"></div>
+            </div>
           </div>
           <div class="reader-progress-row">
-            <div class="reader-progress-track"><div id="reader-book-progress-fill" class="reader-progress-fill book"></div></div>
+            <div class="reader-progress-track">
+              <div id="reader-book-progress-fill" class="reader-progress-fill book"></div>
+            </div>
           </div>
         </div>
       </div>
     </div>
     <div class="reader-frame-wrap">
       <div id="reader-page-tools" class="reader-page-tools">
-        <button id="reader-menu-toggle" type="button" class="reader-menu-toggle" aria-label="Reader menu">☰</button>
+        <button id="reader-menu-toggle" type="button" class="reader-menu-toggle"
+          aria-label="Reader menu">☰</button>
         <div id="reader-menu-panel" class="reader-menu-panel">
           <div class="reader-controls">
             <div class="reader-control-group" aria-label="Background color">
-              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z"/><circle cx="13.5" cy="6.5" r=".5" fill="currentColor"/><circle cx="17.5" cy="10.5" r=".5" fill="currentColor"/><circle cx="6.5" cy="12.5" r=".5" fill="currentColor"/><circle cx="8.5" cy="7.5" r=".5" fill="currentColor"/></svg></span>
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path
+                    d="M12 22a1 1 0 0 1 0-20 10 9 0 0 1 10 9 5 5 0 0 1-5 5h-2.25a1.75 1.75 0 0 0-1.4 2.8l.3.4a1.75 1.75 0 0 1-1.4 2.8z" />
+                  <circle cx="13.5" cy="6.5" r=".5" fill="currentColor" />
+                  <circle cx="17.5" cy="10.5" r=".5" fill="currentColor" />
+                  <circle cx="6.5" cy="12.5" r=".5" fill="currentColor" />
+                  <circle cx="8.5" cy="7.5" r=".5" fill="currentColor" />
+                </svg></span>
               <div class="reader-control-bubble">
-                <span id="reader-bg-current" class="reader-current-swatch" style="background:#073541"></span>
+                <span id="reader-bg-current" class="reader-current-swatch"
+                  style="background:#073541"></span>
                 <div class="reader-bubble-menu" aria-label="Background color">
-                  <button type="button" class="reader-swatch-choice reader-choice-active" data-bg="" aria-label="Background color 1"></button>
-                  <button type="button" class="reader-swatch-choice" data-bg="" aria-label="Background color 2"></button>
-                  <button type="button" class="reader-swatch-choice" data-bg="" aria-label="Background color 3"></button>
-                  <button type="button" class="reader-swatch-choice" data-bg="" aria-label="Background color 4"></button>
-                  <button type="button" class="reader-swatch-choice" data-bg="" aria-label="Background color 5"></button>
-                  <button type="button" class="reader-swatch-choice" data-bg="" aria-label="Background color 6"></button>
+                  <button type="button" class="reader-swatch-choice reader-choice-active" data-bg=""
+                    aria-label="Background color 1"></button>
+                  <button type="button" class="reader-swatch-choice" data-bg=""
+                    aria-label="Background color 2"></button>
+                  <button type="button" class="reader-swatch-choice" data-bg=""
+                    aria-label="Background color 3"></button>
+                  <button type="button" class="reader-swatch-choice" data-bg=""
+                    aria-label="Background color 4"></button>
+                  <button type="button" class="reader-swatch-choice" data-bg=""
+                    aria-label="Background color 5"></button>
+                  <button type="button" class="reader-swatch-choice" data-bg=""
+                    aria-label="Background color 6"></button>
                 </div>
               </div>
             </div>
             <div class="reader-control-group" aria-label="Text color">
-              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 20h16"/><path d="m6 16 6-12 6 12"/><path d="M8 12h8"/></svg></span>
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M4 20h16" />
+                  <path d="m6 16 6-12 6 12" />
+                  <path d="M8 12h8" />
+                </svg></span>
               <div class="reader-control-bubble">
-                <span id="reader-fg-current" class="reader-current-swatch" style="background:#fdf6e2"></span>
+                <span id="reader-fg-current" class="reader-current-swatch"
+                  style="background:#fdf6e2"></span>
                 <div class="reader-bubble-menu" aria-label="Text color">
-                  <button type="button" class="reader-swatch-choice reader-choice-active" data-fg="" aria-label="Text color 1"></button>
-                  <button type="button" class="reader-swatch-choice" data-fg="" aria-label="Text color 2"></button>
-                  <button type="button" class="reader-swatch-choice" data-fg="" aria-label="Text color 3"></button>
-                  <button type="button" class="reader-swatch-choice" data-fg="" aria-label="Text color 4"></button>
-                  <button type="button" class="reader-swatch-choice" data-fg="" aria-label="Text color 5"></button>
-                  <button type="button" class="reader-swatch-choice" data-fg="" aria-label="Text color 6"></button>
+                  <button type="button" class="reader-swatch-choice reader-choice-active" data-fg=""
+                    aria-label="Text color 1"></button>
+                  <button type="button" class="reader-swatch-choice" data-fg=""
+                    aria-label="Text color 2"></button>
+                  <button type="button" class="reader-swatch-choice" data-fg=""
+                    aria-label="Text color 3"></button>
+                  <button type="button" class="reader-swatch-choice" data-fg=""
+                    aria-label="Text color 4"></button>
+                  <button type="button" class="reader-swatch-choice" data-fg=""
+                    aria-label="Text color 5"></button>
+                  <button type="button" class="reader-swatch-choice" data-fg=""
+                    aria-label="Text color 6"></button>
                 </div>
               </div>
             </div>
-	            <div class="reader-control-group" aria-label="Line height">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2v20"/><path d="m8 18 4 4 4-4"/><path d="m8 6 4-4 4 4"/></svg></span>
-	              <div class="reader-control-bubble">
-	                <span id="reader-lh-current" class="reader-current-line">1.6</span>
-	                <div class="reader-bubble-menu" aria-label="Line height">
-	                  <input type="range" orient="vertical" id="reader-lh-slider" class="reader-slider" min="1.2" max="2.4" step="0.1" value="1.6">
-	                </div>
-	              </div>
-	            </div>
-	            <div class="reader-control-group" aria-label="Font size">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16"/><path d="M15.697 14h5.606"/><path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16"/><path d="M3.304 13h6.392"/></svg></span>
-	              <div class="reader-control-bubble">
-	                <span id="reader-size-current" class="reader-current-size">16</span>
-	                <div class="reader-bubble-menu" aria-label="Font size">
-	                  <input type="range" orient="vertical" id="reader-size-slider" class="reader-slider" min="24" max="48" step="1" value="24">
-	                </div>
-	              </div>
-	            </div>
-	            <div class="reader-control-group" aria-label="Page padding">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12h6"/><path d="M15 12h6"/><path d="m7 8-4 4 4 4"/><path d="m17 8 4 4-4 4"/></svg></span>
-	              <div class="reader-control-bubble">
-	                <span id="reader-pad-current" class="reader-current-size">72</span>
-	                <div class="reader-bubble-menu" aria-label="Page padding">
-	                  <input type="range" orient="vertical" id="reader-pad-slider" class="reader-slider" min="32" max="160" step="4" value="72">
-	                </div>
-	              </div>
-	            </div>
-	            <div class="reader-control-group" aria-label="Font family">
-	              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" x2="15" y1="20" y2="20"/><line x1="12" x2="12" y1="4" y2="20"/></svg></span>
-	              <div class="reader-control-bubble">
-	                <span id="reader-font-current" class="reader-current-line">Default</span>
-	                <div class="reader-bubble-menu reader-font-menu" aria-label="Font family">
-	                  <button type="button" class="reader-font-choice reader-choice-active" data-font="">Default</button>
-	                </div>
-	              </div>
-	            </div>
-	          </div>
-	        </div>
-	      </div>
-      <div class="reader-frame-stage">
-        {{if .Prev}}<div class="reader-nav-zone prev"><a id="reader-prev-chapter" class="reader-bottom-nav" href="{{.Prev}}" aria-label="Previous chapter">❮</a></div>{{end}}
-        {{if .Next}}<div class="reader-nav-zone next"><a id="reader-next-chapter" class="reader-bottom-nav" href="{{.Next}}" aria-label="Next chapter">❯</a></div>{{end}}
-	      <iframe id="reader-frame" class="reader-frame" src="{{.IframeSrc}}" title="{{.CurrentChapter}}"></iframe>
+            <div class="reader-control-group" aria-label="Line height">
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M12 2v20" />
+                  <path d="m8 18 4 4 4-4" />
+                  <path d="m8 6 4-4 4 4" />
+                </svg></span>
+              <div class="reader-control-bubble">
+                <span id="reader-lh-current" class="reader-current-line">1.6</span>
+                <div class="reader-bubble-menu" aria-label="Line height">
+                  <input type="range" orient="vertical" id="reader-lh-slider" class="reader-slider"
+                    min="1.2" max="2.4" step="0.1" value="1.6">
+                </div>
+              </div>
+            </div>
+            <div class="reader-control-group" aria-label="Font size">
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="m15 16 2.536-7.328a1.02 1.02 0 0 1 1.928 0L22 16" />
+                  <path d="M15.697 14h5.606" />
+                  <path d="m2 16 4.039-9.69a.5.5 0 0 1 .923 0L11 16" />
+                  <path d="M3.304 13h6.392" />
+                </svg></span>
+              <div class="reader-control-bubble">
+                <span id="reader-size-current" class="reader-current-size">16</span>
+                <div class="reader-bubble-menu" aria-label="Font size">
+                  <input type="range" orient="vertical" id="reader-size-slider"
+                    class="reader-slider" min="20" max="48" step="1" value="24">
+                </div>
+              </div>
+            </div>
+            <div class="reader-control-group" aria-label="Page padding">
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M3 12h6" />
+                  <path d="M15 12h6" />
+                  <path d="m7 8-4 4 4 4" />
+                  <path d="m17 8 4 4-4 4" />
+                </svg></span>
+              <div class="reader-control-bubble">
+                <span id="reader-pad-current" class="reader-current-size">72</span>
+                <div class="reader-bubble-menu" aria-label="Page padding">
+                  <input type="range" orient="vertical" id="reader-pad-slider" class="reader-slider"
+                    min="32" max="160" step="4" value="72">
+                </div>
+              </div>
+            </div>
+            <div class="reader-control-group" aria-label="Font family">
+              <span class="reader-control-symbol"><svg xmlns="http://www.w3.org/2000/svg" width="18"
+                  height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                  stroke-linecap="round" stroke-linejoin="round">
+                  <polyline points="4 7 4 4 20 4 20 7" />
+                  <line x1="9" x2="15" y1="20" y2="20" />
+                  <line x1="12" x2="12" y1="4" y2="20" />
+                </svg></span>
+              <div class="reader-control-bubble">
+                <span id="reader-font-current" class="reader-current-line">Default</span>
+                <div class="reader-bubble-menu reader-font-menu" aria-label="Font family">
+                  <button type="button" class="reader-font-choice reader-choice-active"
+                    data-font="">Default</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
       </div>
-	    </div>
-	  </main>
-	  <script>
-	    (function () {
-		      const frameStage = document.querySelector('.reader-frame-stage');
-		      const prevChapter = document.getElementById('reader-prev-chapter');
-		      const frame = document.getElementById('reader-frame');
-		      const nextChapter = document.getElementById('reader-next-chapter');
-		      const sidebarResizer = document.getElementById('reader-sidebar-resizer');
-		      const sidebarToggle = document.getElementById('reader-sidebar-toggle');
-		      const pageTools = document.getElementById('reader-page-tools');
-		      const menuToggle = document.getElementById('reader-menu-toggle');
-		      const menuPanel = document.getElementById('reader-menu-panel');
-		      const chapterProgressFill = document.getElementById('reader-chapter-progress-fill');
-		      const bookProgressFill = document.getElementById('reader-book-progress-fill');
-		      const toc = document.getElementById('reader-toc');
-		      const bgCurrent = document.getElementById('reader-bg-current');
-		      const fgCurrent = document.getElementById('reader-fg-current');
-		      const lhCurrent = document.getElementById('reader-lh-current');
-		      const sizeCurrent = document.getElementById('reader-size-current');
-		      const padCurrent = document.getElementById('reader-pad-current');
-		      const bgChoices = Array.from(document.querySelectorAll('[data-bg]'));
-		      const fgChoices = Array.from(document.querySelectorAll('[data-fg]'));
-		      const lhSlider = document.getElementById('reader-lh-slider');
-		      const sizeSlider = document.getElementById('reader-size-slider');
-		      const padSlider = document.getElementById('reader-pad-slider');
-		      const fontCurrent = document.getElementById('reader-font-current');
-      const fontMenu = document.querySelector('.reader-font-menu');
-      const bubbles = Array.from(document.querySelectorAll('.reader-control-bubble'));
-      const controlGroups = Array.from(document.querySelectorAll('.reader-control-group'));
-      var themePalettes = {
-        'solarized-dark':    { bg: ['#073541','#002b36','#00141a','#1e1e1e','#eee8d5','#fdf6e3'], fg: ['#fdf6e2','#eee8d5','#93a1a1','#839496','#586e75','#073642'] },
-        'solarized-light':   { bg: ['#fdf6e3','#eee8d5','#ffffff','#f5f0e1','#002b36','#073642'], fg: ['#073642','#002b36','#586e75','#657b83','#839496','#fdf6e3'] },
-        'catppuccin-mocha':  { bg: ['#1e1e2e','#181825','#11111b','#313244','#45475a','#cdd6f4'], fg: ['#cdd6f4','#bac2de','#a6adc8','#9399b2','#7f849c','#1e1e2e'] },
-        'catppuccin-latte':  { bg: ['#eff1f5','#e6e9ef','#dce0e8','#ccd0da','#bcc0cc','#4c4f69'], fg: ['#4c4f69','#5c5f77','#6c6f85','#7c7f93','#8c8fa1','#eff1f5'] },
-        'nord':              { bg: ['#2e3440','#3b4252','#434c5e','#4c566a','#d8dee9','#eceff4'], fg: ['#eceff4','#e5e9f0','#d8dee9','#81a1c1','#88c0d0','#2e3440'] },
-        'everforest':   { bg: ['#2e383c','#272e33','#1e2326','#374145','#414b50','#d3c6aa'], fg: ['#d3c6aa','#9da9a0','#859289','#7a8478','#a7c080','#2e383c'] },
-        'tokyonight':   { bg: ['#222436','#1e2030','#1b1d2b','#2f334d','#3b4261','#c8d3f5'], fg: ['#c8d3f5','#a9b1d6','#828bb8','#737aa2','#636da6','#222436'] },
-        'kanagawa':          { bg: ['#1f1f28','#16161d','#2a2a37','#363646','#54546d','#dcd7ba'], fg: ['#dcd7ba','#c8c093','#938aa9','#727169','#9cabca','#1f1f28'] },
-        'rose-pine':         { bg: ['#191724','#16141f','#1f1d2e','#26233a','#403d52','#e0def4'], fg: ['#e0def4','#ebbcba','#908caa','#6e6a86','#c4a7e7','#191724'] }
-      };
-      function applySwatchPalette(theme) {
-        var pal = themePalettes[theme] || themePalettes['solarized-dark'];
-        bgChoices.forEach(function(btn, i) { btn.dataset.bg = pal.bg[i]; btn.style.background = pal.bg[i]; });
-        fgChoices.forEach(function(btn, i) { btn.dataset.fg = pal.fg[i]; btn.style.background = pal.fg[i]; });
-        if (localStorage.getItem('reader:theme') !== theme) {
-          bg = pal.bg[0];
-          fg = pal.fg[0];
-          localStorage.setItem('reader:bg', bg);
-          localStorage.setItem('reader:fg', fg);
-          localStorage.setItem('reader:theme', theme);
-        }
-        bgCurrent.style.backgroundColor = bg;
-        fgCurrent.style.backgroundColor = fg;
-        syncActiveChoices(bgChoices, 'bg', bg);
-        syncActiveChoices(fgChoices, 'fg', fg);
-      }
-      let bg = localStorage.getItem('reader:bg') || '#073541';
-      let fg = localStorage.getItem('reader:fg') || '#fdf6e2';
-      let lh = localStorage.getItem('reader:lh') || '1.6';
-      let size = localStorage.getItem('reader:size') || '24px';
-      let padX = localStorage.getItem('reader:px') || '72px';
-      let fontFamily = localStorage.getItem('reader:font') || '';
-      let pendingG = false;
-      let pendingGTimer = null;
-		      let hideTimer = null;
-		      let openTimer = null;
-		      let frameCloseBound = false;
-		      let frameScrollBound = false;
-		      const SIDEBAR_WIDTH_KEY = 'sidebar:width';
-		      const SIDEBAR_LAST_KEY = 'sidebar:last-width';
-		      const SIDEBAR_MIN = 220;
-		      const SIDEBAR_MAX = 520;
-		      const SIDEBAR_COLLAPSED = 60;
-
-			function clampSidebarWidth(value) {
-				return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value));
-			}
-
-			function applySidebarWidth(value) {
-				const width = value <= SIDEBAR_COLLAPSED ? SIDEBAR_COLLAPSED : clampSidebarWidth(value);
-				document.documentElement.style.setProperty('--sidebar-w', width + 'px');
-				document.body.classList.toggle('sidebar-collapsed', width === SIDEBAR_COLLAPSED);
-				if (sidebarToggle) {
-					sidebarToggle.textContent = width === SIDEBAR_COLLAPSED ? '❯' : '❮';
-					sidebarToggle.setAttribute('aria-label', width === SIDEBAR_COLLAPSED ? 'Expand sidebar' : 'Collapse sidebar');
-				}
-			}
-
-			function initSidebarResize() {
-				const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || '', 10);
-				if (saved > 0) applySidebarWidth(saved);
-				if (!sidebarResizer || window.matchMedia('(max-width: 920px)').matches) return;
-				if (sidebarToggle) {
-					sidebarToggle.addEventListener('click', function (event) {
-						event.stopPropagation();
-						const current = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
-						if (current === SIDEBAR_COLLAPSED) {
-							const restored = parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || '', 10) || 280;
-							applySidebarWidth(restored);
-							localStorage.setItem(SIDEBAR_WIDTH_KEY, String(restored));
-							return;
-						}
-						localStorage.setItem(SIDEBAR_LAST_KEY, String(current));
-						applySidebarWidth(SIDEBAR_COLLAPSED);
-						localStorage.setItem(SIDEBAR_WIDTH_KEY, String(SIDEBAR_COLLAPSED));
-					});
-				}
-				sidebarResizer.addEventListener('pointerdown', function (event) {
-					if (event.target === sidebarToggle) return;
-					const startWidth = parseFloat(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w')) || 280;
-					const startX = event.clientX;
-					document.body.classList.add('resizing-sidebar');
-					sidebarResizer.setPointerCapture(event.pointerId);
-					function onMove(moveEvent) {
-						applySidebarWidth(startWidth + (moveEvent.clientX - startX));
-					}
-					function onEnd(endEvent) {
-						sidebarResizer.removeEventListener('pointermove', onMove);
-						sidebarResizer.removeEventListener('pointerup', onEnd);
-						sidebarResizer.removeEventListener('pointercancel', onEnd);
-						document.body.classList.remove('resizing-sidebar');
-						sidebarResizer.releasePointerCapture(endEvent.pointerId);
-						const finalWidth = parseInt(getComputedStyle(document.documentElement).getPropertyValue('--sidebar-w'), 10) || 0;
-						if (finalWidth > SIDEBAR_COLLAPSED) {
-							localStorage.setItem(SIDEBAR_LAST_KEY, String(finalWidth));
-						}
-						localStorage.setItem(SIDEBAR_WIDTH_KEY, String(finalWidth));
-					}
-					sidebarResizer.addEventListener('pointermove', onMove);
-					sidebarResizer.addEventListener('pointerup', onEnd);
-					sidebarResizer.addEventListener('pointercancel', onEnd);
-				});
-			}
-
-				function applyTheme() {
-					applyThemeToFrame(frame, bg, fg, lh, size, padX, fontFamily);
-					document.documentElement.style.setProperty('--reader-shell-fg', fg);
-					document.documentElement.style.setProperty('--reader-progress-book', fg);
-					document.documentElement.style.setProperty('--reader-progress-chapter', 'color-mix(in srgb, ' + fg + ' 60%, ' + bg + ')');
-					bgCurrent.style.backgroundColor = bg;
-					fgCurrent.style.backgroundColor = fg;
-					lhCurrent.textContent = lh;
-				sizeCurrent.textContent = size.replace('px', '');
-				padCurrent.textContent = padX.replace('px', '');
-				fontCurrent.textContent = fontFamily || 'Default';
-			}
-
-				function applyThemeToFrame(frame, activeBg, activeFg, activeLh, activeSize, activePadX, activeFont) {
-				const doc = frame.contentDocument;
-				if (!doc) return;
-				doc.documentElement.style.setProperty('--reader-bg', activeBg);
-				doc.documentElement.style.setProperty('--reader-fg', activeFg);
-				doc.documentElement.style.setProperty('--reader-pad-x', activePadX);
-				doc.documentElement.style.backgroundColor = activeBg;
-				doc.documentElement.style.color = activeFg;
-				doc.documentElement.style.lineHeight = activeLh;
-				doc.documentElement.style.fontSize = activeSize;
-				doc.documentElement.style.fontFamily = activeFont || '';
-				if (doc.body) {
-					doc.body.style.backgroundColor = activeBg;
-					doc.body.style.color = activeFg;
-					doc.body.style.lineHeight = activeLh;
-					doc.body.style.fontSize = activeSize;
-					doc.body.style.paddingLeft = activePadX;
-					doc.body.style.paddingRight = activePadX;
-					doc.body.style.fontFamily = activeFont || '';
-					}
-				}
-
-				function isShortcutTargetBlocked(target) {
-					if (!target || target.nodeType !== 1) {
-						return false;
-					}
-					if (target.closest('#reader-page-tools')) {
-						return true;
-					}
-					if (target.closest('input, textarea, select, button, a, [contenteditable="true"]')) {
-						return true;
-					}
-					return false;
-				}
-
-				function scrollReaderTo(position) {
-					const doc = frame.contentDocument;
-					if (!doc) return;
-					const win = doc.defaultView;
-					const scrollingEl = doc.scrollingElement || doc.documentElement || doc.body;
-					if (!scrollingEl) return;
-					const top = position === 'end' ? scrollingEl.scrollHeight : 0;
-					if (win && typeof win.scrollTo === 'function') {
-						win.scrollTo({ top: top, behavior: 'smooth' });
-					} else {
-						scrollingEl.scrollTop = top;
-					}
-				}
-
-			function scrollReaderBy(delta) {
-					const doc = frame.contentDocument;
-					if (!doc) {
-						return;
-					}
-					const win = doc.defaultView;
-					if (win && typeof win.scrollBy === 'function') {
-						win.scrollBy({ top: delta, behavior: 'smooth' });
-						return;
-					}
-					const scrollingEl = doc.scrollingElement || doc.documentElement || doc.body;
-					if (scrollingEl) {
-						scrollingEl.scrollTop += delta;
-					}
-				}
-
-				function goToChapter(link) {
-					if (link && link.href) {
-						window.location.href = link.href;
-					}
-				}
-
-				function goToChapterIndex(index) {
-					if (index < 0 || index >= {{.ChapterCount}}) {
-						return;
-					}
-					window.location.href = '/read/{{.EncodedPath}}?chapter=' + index;
-				}
-
-				function clearPendingG() {
-					pendingG = false;
-					if (pendingGTimer) {
-						clearTimeout(pendingGTimer);
-						pendingGTimer = null;
-					}
-				}
-
-				function armPendingG() {
-					clearPendingG();
-					pendingG = true;
-					pendingGTimer = setTimeout(function () {
-						pendingG = false;
-						pendingGTimer = null;
-					}, 450);
-				}
-
-				function toggleSidebar() {
-					if (sidebarToggle) {
-						sidebarToggle.click();
-					}
-				}
-
-				function handleReaderShortcut(event) {
-					if (event.defaultPrevented || event.metaKey || event.ctrlKey || event.altKey) {
-						clearPendingG();
-						return;
-					}
-					if (isShortcutTargetBlocked(event.target)) {
-						clearPendingG();
-						return;
-					}
-					if (event.isComposing) {
-						return;
-					}
-					if (event.repeat && event.key !== 'j' && event.key !== 'k' && event.key !== 'J' && event.key !== 'K' && event.key !== 'ArrowDown' && event.key !== 'ArrowUp') {
-						return;
-					}
-					if (event.key === 'g') {
-						event.preventDefault();
-						if (pendingG) {
-							clearPendingG();
-							goToChapterIndex(0);
-							return;
-						}
-						armPendingG();
-						return;
-					}
-					if (event.key === 'G') {
-						event.preventDefault();
-						clearPendingG();
-						goToChapterIndex({{.ChapterCount}} - 1);
-						return;
-					}
-					clearPendingG();
-					if (event.key === 'J') {
-						event.preventDefault();
-						scrollReaderTo('end');
-						return;
-					}
-					if (event.key === 'K') {
-						event.preventDefault();
-						scrollReaderTo('start');
-						return;
-					}
-					switch (event.key) {
-						case 'ArrowDown':
-						case 'j':
-							event.preventDefault();
-							scrollReaderBy(96);
-							break;
-						case 'ArrowUp':
-						case 'k':
-							event.preventDefault();
-							scrollReaderBy(-96);
-							break;
-							case 'ArrowRight':
-							case 'l':
-								event.preventDefault();
-								goToChapter(nextChapter);
-								break;
-							case 'ArrowLeft':
-							case 'h':
-								event.preventDefault();
-								goToChapter(prevChapter);
-								break;
-						case 'Tab':
-							event.preventDefault();
-							toggleSidebar();
-							break;
-					}
-				}
-
-				function bindReaderShortcuts() {
-					window.addEventListener('keydown', handleReaderShortcut);
-				}
-
-				function bindFrameShortcuts() {
-					const doc = frame.contentDocument;
-					if (!doc) {
-						return;
-					}
-					const win = doc.defaultView;
-					if (win) {
-						win.addEventListener('keydown', handleReaderShortcut);
-					}
-					doc.addEventListener('keydown', handleReaderShortcut);
-				}
-
-      function scheduleHide() {
-        clearTimeout(openTimer);
-        openTimer = null;
-        clearTimeout(hideTimer);
-        hideTimer = setTimeout(function () {
-          closeMenu();
-        }, 3000);
-      }
-
-      function openMenu() {
-        menuPanel.classList.add('open');
-        pageTools.classList.add('open');
-        menuToggle.classList.remove('rotating');
-        scheduleHide();
-      }
-
-	      function closeMenu() {
-	        menuPanel.classList.remove('open');
-	        pageTools.classList.remove('open');
-	        clearTimeout(hideTimer);
-	        clearTimeout(openTimer);
-	        openTimer = null;
-	        bubbles.forEach(bubble => bubble.classList.remove('open'));
-	      }
-
-      function queueOpenMenu() {
-        clearTimeout(hideTimer);
-        if (menuPanel.classList.contains('open')) {
-          return;
-        }
-        if (openTimer) {
-          return;
-        }
-        menuToggle.classList.add('rotating');
-        openTimer = setTimeout(function () {
-          openTimer = null;
-          openMenu();
-        }, 200);
-      }
-
-		function openBubble(targetBubble) {
-			const current = targetBubble.querySelector('.reader-current-swatch, .reader-current-line, .reader-current-size, #reader-font-current');
-			const menu = targetBubble.querySelector('.reader-bubble-menu');
-			if (current && menu) {
-				menu.style.left = String(current.offsetLeft + current.offsetWidth / 2) + 'px';
-			}
-			bubbles.forEach(bubble => {
-				bubble.classList.toggle('open', bubble === targetBubble);
-			});
-		}
-
-      function closeBubble(targetBubble) {
-        targetBubble.classList.remove('open');
-      }
-
-			function bindChoices(choices, key, setter) {
-				choices.forEach(choice => {
-						var saved;
-						var previewing = false;
-						choice.addEventListener('mousedown', function (event) {
-							event.stopPropagation();
-						});
-						choice.addEventListener('pointerdown', function (event) {
-							event.preventDefault();
-							event.stopPropagation();
-							previewing = false;
-							saved = choice.dataset[key];
-							choices.forEach(item => item.classList.remove('reader-choice-active'));
-							choice.classList.add('reader-choice-active');
-							setter(choice.dataset[key]);
-							localStorage.setItem('reader:' + key, choice.dataset[key]);
-							applyTheme();
-							scheduleHide();
-						});
-						choice.addEventListener('mouseenter', function () {
-							saved = key === 'bg' ? bg : fg;
-							previewing = true;
-							setter(choice.dataset[key]);
-							applyTheme();
-						});
-						choice.addEventListener('mouseleave', function () {
-							if (previewing) {
-								setter(saved);
-								applyTheme();
-								previewing = false;
-							}
-					});
-				});
-			}
-
-				function bindFrameClose() {
-					if (frameCloseBound) {
-						return;
-				}
-					const doc = frame.contentDocument;
-				if (!doc) return;
-				doc.addEventListener('mousedown', function () {
-					closeMenu();
-					menuToggle.classList.remove('rotating');
-				});
-					frameCloseBound = true;
-				}
-
-				function clearNavHover() {
-					if (!frameStage) {
-						return;
-					}
-					frameStage.classList.remove('nav-hover-prev', 'nav-hover-next');
-				}
-
-				function updateNavHover(clientX, clientY, width, height) {
-					if (!frameStage) {
-						return;
-					}
-					const inBottomBand = clientY >= height - Math.min(160, height * 0.3);
-					const edgeWidth = Math.min(180, Math.max(72, width * 0.24));
-					const showPrev = inBottomBand && clientX <= edgeWidth && Boolean(prevChapter);
-					const showNext = inBottomBand && clientX >= width - edgeWidth && Boolean(nextChapter);
-					frameStage.classList.toggle('nav-hover-prev', showPrev);
-					frameStage.classList.toggle('nav-hover-next', showNext);
-				}
-
-				function bindFrameNavHover() {
-					const doc = frame.contentDocument;
-					if (!doc) {
-						return;
-					}
-					doc.addEventListener('mousemove', function (event) {
-						const win = doc.defaultView;
-						const width = (win && win.innerWidth) || doc.documentElement.clientWidth || 0;
-						const height = (win && win.innerHeight) || doc.documentElement.clientHeight || 0;
-						updateNavHover(event.clientX, event.clientY, width, height);
-					}, { passive: true });
-					doc.addEventListener('mouseleave', clearNavHover);
-				}
-
-							function updateReaderProgress() {
-							if (!chapterProgressFill || !bookProgressFill) {
-								return;
-						}
-						const chapterCount = {{.ChapterCount}};
-						const currentIndex = {{.CurrentIndex}};
-						if (chapterCount <= 0) {
-							chapterProgressFill.style.width = '0%';
-							bookProgressFill.style.width = '0%';
-							return;
-						}
-						const doc = frame.contentDocument;
-						if (!doc) {
-							chapterProgressFill.style.width = '0%';
-							bookProgressFill.style.width = String(((currentIndex + 1) / chapterCount) * 100) + '%';
-							return;
-						}
-					const win = doc.defaultView;
-					const docEl = doc.documentElement;
-					const body = doc.body;
-					const scrollTop = (win && (win.scrollY || win.pageYOffset)) || (docEl && docEl.scrollTop) || (body && body.scrollTop) || 0;
-					const clientHeight = (win && win.innerHeight) || (docEl && docEl.clientHeight) || (body && body.clientHeight) || 0;
-					const scrollHeight = Math.max(
-						(docEl && docEl.scrollHeight) || 0,
-						(body && body.scrollHeight) || 0,
-						(doc.scrollingElement && doc.scrollingElement.scrollHeight) || 0,
-						);
-						const scrollable = Math.max(scrollHeight - clientHeight, 0);
-						const chapterFraction = scrollable > 0 ? Math.min(Math.max(scrollTop / scrollable, 0), 1) : 1;
-						const chapterProgress = chapterFraction * 100;
-						const bookProgress = ((currentIndex + chapterFraction) / chapterCount) * 100;
-						chapterProgressFill.style.width = String(Math.min(Math.max(chapterProgress, 0), 100)) + '%';
-						bookProgressFill.style.width = String(Math.min(Math.max(bookProgress, 0), 100)) + '%';
-					}
-
-					function bindFrameScroll() {
-						if (frameScrollBound) {
-							return;
-						}
-					const doc = frame.contentDocument;
-					if (!doc) {
-						return;
-					}
-					const win = doc.defaultView;
-					const docEl = doc.documentElement;
-					const body = doc.body;
-						if (!win || !docEl) {
-							return;
-						}
-							win.addEventListener('scroll', updateReaderProgress, { passive: true });
-							win.addEventListener('resize', updateReaderProgress);
-							doc.addEventListener('scroll', updateReaderProgress, { passive: true });
-							docEl.addEventListener('scroll', updateReaderProgress, { passive: true });
-							if (body) {
-								body.addEventListener('scroll', updateReaderProgress, { passive: true });
-							}
-							frameScrollBound = true;
-							updateReaderProgress();
-						}
-
-			function syncActiveChoices(choices, key, currentValue) {
-			choices.forEach(choice => {
-				choice.classList.toggle('reader-choice-active', choice.dataset[key] === currentValue);
-			});
-		}
-
-      bindChoices(bgChoices, 'bg', value => { bg = value; });
-      bindChoices(fgChoices, 'fg', value => { fg = value; });
-	      function bindSlider(slider, initialValue, updateValue, storageKey, getStoredValue) {
-	        slider.value = initialValue;
-	        slider.addEventListener('mousedown', function (event) {
-	          event.stopPropagation();
-	        });
-	        slider.addEventListener('input', function () {
-	          updateValue(slider.value);
-	          applyTheme();
-	        });
-	        slider.addEventListener('change', function () {
-	          localStorage.setItem(storageKey, getStoredValue());
-	          scheduleHide();
-	        });
-	      }
-	      bindSlider(lhSlider, lh, function (value) {
-	        lh = value;
-	      }, 'reader:lh', function () {
-	        return lh;
-	      });
-	      bindSlider(sizeSlider, size.replace('px', ''), function (value) {
-	        size = value + 'px';
-	      }, 'reader:size', function () {
-	        return size;
-	      });
-	      bindSlider(padSlider, padX.replace('px', ''), function (value) {
-	        padX = value + 'px';
-	      }, 'reader:px', function () {
-	        return padX;
-	      });
-		      function bindFontChoices() {
-		        const choices = Array.from(fontMenu.querySelectorAll('.reader-font-choice'));
-		        choices.forEach(function (choice) {
-		          var saved;
-		          var previewing = false;
-		          choice.addEventListener('mousedown', function (event) {
-		            event.stopPropagation();
-		          });
-		          choice.addEventListener('pointerdown', function (event) {
-		            event.preventDefault();
-		            event.stopPropagation();
-		            previewing = false;
-		            saved = choice.dataset.font;
-		            choices.forEach(function (c) { c.classList.remove('reader-choice-active'); });
-		            choice.classList.add('reader-choice-active');
-		            fontFamily = choice.dataset.font;
-		            localStorage.setItem('reader:font', fontFamily);
-		            applyTheme();
-		            closeBubble(fontMenu.closest('.reader-control-bubble'));
-		            scheduleHide();
-		          });
-		          choice.addEventListener('mouseenter', function () {
-		            saved = fontFamily;
-		            previewing = true;
-		            fontFamily = choice.dataset.font;
-		            applyTheme();
-		          });
-		          choice.addEventListener('mouseleave', function () {
-		            if (previewing) {
-		              fontFamily = saved;
-		              applyTheme();
-		              previewing = false;
-		            }
-		          });
-		        });
-		      }
-      fetch('/api/fonts').then(function(r) { return r.json(); }).then(function (fonts) {
-        fonts.forEach(function (f) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.className = 'reader-font-choice';
-          btn.dataset.font = f;
-          btn.textContent = f;
-          btn.style.fontFamily = "'" + f + "'";
-          fontMenu.appendChild(btn);
-        });
-        fontMenu.querySelectorAll('.reader-font-choice').forEach(function (c) {
-          c.classList.toggle('reader-choice-active', c.dataset.font === fontFamily);
-        });
-        bindFontChoices();
-      });
-
-		      controlGroups.forEach(group => {
-		        const bubble = group.querySelector('.reader-control-bubble');
-		        if (!bubble) {
-		          return;
-		        }
-		        group.addEventListener('mousedown', function (event) {
-		          event.stopPropagation();
-		        });
-		        group.addEventListener('click', function (event) {
-		          event.stopPropagation();
-		          clearTimeout(hideTimer);
-		          if (!menuPanel.classList.contains('open')) {
-            openMenu();
-          }
-          openBubble(bubble);
-        });
-        group.addEventListener('mouseenter', function () {
-          clearTimeout(hideTimer);
-          openBubble(bubble);
-        });
-        group.addEventListener('mouseleave', function () {
-          closeBubble(bubble);
-          if (menuPanel.classList.contains('open')) {
-            scheduleHide();
-          }
-        });
-      });
-
-      menuToggle.addEventListener('mouseenter', queueOpenMenu);
-	      menuToggle.addEventListener('click', function () {
-	        if (menuPanel.classList.contains('open')) {
-	          closeMenu();
-	          return;
-	        }
-	        queueOpenMenu();
-	      });
-	      pageTools.addEventListener('mousedown', function (event) {
-	        event.stopPropagation();
-	      });
-	      menuPanel.addEventListener('mousedown', function (event) {
-	        event.stopPropagation();
-	      });
-	      pageTools.addEventListener('mouseenter', function () {
-	        clearTimeout(openTimer);
-        openTimer = null;
-        clearTimeout(hideTimer);
-        if (!menuPanel.classList.contains('open')) {
-          queueOpenMenu();
-        }
-      });
-      pageTools.addEventListener('mouseleave', function () {
-        if (menuPanel.classList.contains('open')) {
-          scheduleHide();
-          return;
-        }
-        clearTimeout(openTimer);
-        openTimer = null;
-        menuToggle.classList.remove('rotating');
-      });
-      menuPanel.addEventListener('click', scheduleHide);
-      menuPanel.addEventListener('focusin', function () {
-        if (menuPanel.classList.contains('open')) {
-          clearTimeout(hideTimer);
-        }
-      });
-		menuPanel.addEventListener('focusout', function () {
-			if (menuPanel.classList.contains('open')) {
-				scheduleHide();
-			}
-		});
-		document.addEventListener('mousedown', function (event) {
-			if (!pageTools.contains(event.target)) {
-				closeMenu();
-				menuToggle.classList.remove('rotating');
-			}
-		});
-			if (toc) {
-				const tocKey = 'reader:toc:' + window.location.pathname;
-	        const savedTop = localStorage.getItem(tocKey);
-	        if (savedTop) toc.scrollTop = Number(savedTop);
-        toc.addEventListener('scroll', function () {
-          localStorage.setItem(tocKey, String(toc.scrollTop));
-        });
-      }
-	      applySwatchPalette('{{.Theme}}');
-							frame.addEventListener('load', function () {
-								frameCloseBound = false;
-								frameScrollBound = false;
-								applyTheme();
-								bindFrameClose();
-								bindFrameNavHover();
-								bindFrameScroll();
-								bindFrameShortcuts();
-								setTimeout(updateReaderProgress, 150);
-							});
-				initSidebarResize();
-					bindReaderShortcuts();
-					bindFrameClose();
-					bindFrameScroll();
-					applyTheme();
-				updateReaderProgress();
-		document.querySelectorAll('.reader-toc .group-section').forEach(function (section) {
-			var hoverTimer = null;
-			section.querySelector('.group-header').addEventListener('click', function (e) {
-				if (!e.target.closest('a')) {
-					section.classList.toggle('open');
-				}
-			});
-			section.addEventListener('mouseenter', function () {
-				hoverTimer = setTimeout(function () { section.classList.add('hover-open'); }, 500);
-			});
-			section.addEventListener('mouseleave', function () {
-				clearTimeout(hoverTimer);
-				section.classList.remove('hover-open');
-			});
-		});
-      localStorage.setItem('lastRead', JSON.stringify({path: '{{.EncodedPath}}', chapter: {{.CurrentIndex}}, title: '{{.Title}}'}));
-      window.openPreferences = function() { window.location.href = '/?openPrefs=1'; };
-	})();
-  </script>
+      <div class="reader-frame-stage">
+        <div class="reader-search-anchor">
+          <form id="reader-search" class="reader-search" role="search">
+            <button id="reader-search-scope" class="reader-search-scope" type="button" aria-label="Toggle search scope" data-tooltip="chapter search">
+              <svg id="reader-search-scope-icon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>
+            </button>
+            <input id="reader-search-input" class="reader-search-input" type="search" placeholder="Search chapter" aria-label="Search chapter">
+            <span id="reader-search-count" class="reader-search-count" aria-live="polite"></span>
+            <button id="reader-search-prev" class="reader-search-nav" type="button" aria-label="Previous match">↑</button>
+            <button id="reader-search-next" class="reader-search-nav" type="button" aria-label="Next match">↓</button>
+            <button id="reader-search-clear" class="reader-search-clear" type="button" aria-label="Clear search">✕</button>
+          </form>
+        </div>
+        {{if .Prev}}
+        <div class="reader-nav-zone prev"><a id="reader-prev-chapter" class="reader-bottom-nav"
+            href="{{.Prev}}" aria-label="Previous chapter">❮</a></div>{{end}}
+        {{if .Next}}
+        <div class="reader-nav-zone next"><a id="reader-next-chapter" class="reader-bottom-nav"
+            href="{{.Next}}" aria-label="Next chapter">❯</a></div>{{end}}
+        <iframe id="reader-frame" class="reader-frame" src="{{.IframeSrc}}"
+          title="{{.CurrentChapter}}"></iframe>
+      </div>
+    </div>
+  </main>
+  <script src="/reader-assets/reader.js"></script>
 </body>
+
 </html>

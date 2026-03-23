@@ -876,7 +876,13 @@
 			values.forEach(value => {
 				const item = document.createElement('div');
 				item.className = 'group-item';
-				item.innerHTML = `<span>${value}</span><span class="group-item-count">${navCounts[key][value] || 0}</span>`;
+				const label = document.createElement('span');
+				label.textContent = value;
+				const itemCount = document.createElement('span');
+				itemCount.className = 'group-item-count';
+				itemCount.textContent = String(navCounts[key][value] || 0);
+				item.appendChild(label);
+				item.appendChild(itemCount);
 				item.addEventListener('click', () => applyFilter(key, value));
 				itemsInner.appendChild(item);
 				navRefs[key].set(value, item);
@@ -1216,7 +1222,14 @@
 			if (!value) return;
 			const metaRow = document.createElement('div');
 			metaRow.className = 'book-row-meta-row';
-			metaRow.innerHTML = `<span class="book-row-meta-label">${label}</span><span class="book-row-meta-value">${value}</span>`;
+			const metaLabel = document.createElement('span');
+			metaLabel.className = 'book-row-meta-label';
+			metaLabel.textContent = label;
+			const metaValue = document.createElement('span');
+			metaValue.className = 'book-row-meta-value';
+			metaValue.textContent = value;
+			metaRow.appendChild(metaLabel);
+			metaRow.appendChild(metaValue);
 			metaPanel.appendChild(metaRow);
 		});
 
