@@ -19,9 +19,6 @@ Install from the [releases page](https://github.com/gennaro-tedesco/metabrowser/
 
 ## Features
 
-Watch the demo below and be amazed.
-
-
 ### Library view
 
 Browse your library by tags, series, authors, language. Tap and toggle tag cards on and off the search bar and combine them to filter accordingly!
