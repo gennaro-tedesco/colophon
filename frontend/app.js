@@ -578,6 +578,11 @@
 		if (event.target === drilldownBackdrop) closeDrilldownModal();
 	});
 		document.addEventListener('keydown', event => {
+			if (event.key === 'Tab') {
+				event.preventDefault();
+				if (sidebarToggle) sidebarToggle.click();
+				return;
+			}
 			if (event.key !== 'Escape') return;
 			if (drilldownBackdrop.classList.contains('open')) {
 				closeDrilldownModal();

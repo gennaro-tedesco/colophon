@@ -1135,7 +1135,7 @@ input[type="range"].prefs-input {
 
 .app-submenu {
   position: absolute;
-  left: calc(100% + 4px);
+  left: calc(100% - 4px);
   top: -8px;
   background: color-mix(in srgb, var(--mantle) 96%, transparent);
   backdrop-filter: blur(12px);
