@@ -144,17 +144,6 @@ func (a *App) streamScan(dir string) {
 		if inCache && old.ModTime.Equal(r.ModTime) {
 			continue // already emitted
 		}
-		currentBooks := make([]model.Book, 0, len(booksByPath))
-		for _, book := range booksByPath {
-			currentBooks = append(currentBooks, book)
-		}
-		sort.Slice(currentBooks, func(i, j int) bool { return currentBooks[i].Title < currentBooks[j].Title })
-		currentLib := scanner.BuildLibrary(currentBooks)
-		a.mu.Lock()
-		a.root = dir
-		a.lib = currentLib
-		a.handler = server.NewHandler(dir, currentLib, fonts, a.cfg.Theme)
-		a.mu.Unlock()
 		runtime.EventsEmit(a.ctx, "book:add", r.Book)
 	}
 
