@@ -1,7 +1,52 @@
 (function () {
+  function parseColor(str) {
+    var s = str.trim();
+    if (s.charAt(0) === "#") {
+      var hex =
+        s.length === 4 ? s[1] + s[1] + s[2] + s[2] + s[3] + s[3] : s.slice(1);
+      return [
+        parseInt(hex.slice(0, 2), 16),
+        parseInt(hex.slice(2, 4), 16),
+        parseInt(hex.slice(4, 6), 16),
+      ];
+    }
+    var m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
+    if (m) return [+m[1], +m[2], +m[3]];
+    return null;
+  }
+
+  function blendColors(c1, ratio, c2) {
+    if (!c1) return "transparent";
+    if (c2 === null)
+      return "rgba(" + c1[0] + "," + c1[1] + "," + c1[2] + "," + ratio + ")";
+    if (!c2) return "transparent";
+    return (
+      "rgb(" +
+      Math.round(c1[0] * ratio + c2[0] * (1 - ratio)) +
+      "," +
+      Math.round(c1[1] * ratio + c2[1] * (1 - ratio)) +
+      "," +
+      Math.round(c1[2] * ratio + c2[2] * (1 - ratio)) +
+      ")"
+    );
+  }
+
+  function initReaderThemeMixes() {
+    var cs = getComputedStyle(document.documentElement);
+    var el = document.documentElement;
+    function get(v) {
+      return cs.getPropertyValue(v).trim();
+    }
+    var teal = parseColor(get("--teal"));
+    var base = parseColor(get("--base"));
+    el.style.setProperty("--mix-teal-8-base", blendColors(teal, 0.08, base));
+    el.style.setProperty("--mix-teal-14-base", blendColors(teal, 0.14, base));
+  }
+
   function applyConfig(cfg) {
     var root = document.documentElement;
     if (cfg.theme) root.setAttribute("data-theme", cfg.theme);
+    initReaderThemeMixes();
     if (cfg.uiFontSize > 0) {
       var b = cfg.uiFontSize;
       root.style.setProperty("--fs-xs", Math.round(b * 0.75) + "px");
@@ -35,6 +80,9 @@
     var currentIndex = Number(body.dataset.readerCurrentIndex || "0");
     var encodedPath = body.dataset.readerEncodedPath || "";
     var readerTheme = body.dataset.readerTheme || "";
+    if (readerTheme)
+      document.documentElement.setAttribute("data-theme", readerTheme);
+    initReaderThemeMixes();
     var readerTitle = body.dataset.readerTitle || "";
     var frameStage = document.querySelector(".reader-frame-stage");
     var prevChapter = document.getElementById("reader-prev-chapter");
@@ -275,7 +323,7 @@
       document.documentElement.style.setProperty("--reader-progress-book", fg);
       document.documentElement.style.setProperty(
         "--reader-progress-chapter",
-        "color-mix(in srgb, " + fg + " 60%, " + bg + ")",
+        blendColors(parseColor(fg), 0.6, parseColor(bg)),
       );
       bgCurrent.style.backgroundColor = bg;
       fgCurrent.style.backgroundColor = fg;

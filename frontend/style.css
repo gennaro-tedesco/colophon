@@ -10,9 +10,8 @@
 
 :root {
   --sidebar-w: 280px;
-  --views-bottom-rows: 5;
   --views-row-h: 36px;
-  --views-visible-rows: 7;
+  --views-h: 288px;
 }
 
 html,
@@ -176,26 +175,26 @@ body.sidebar-collapsed #sidebar {
 
 .group-item:hover {
   color: var(--text);
-  background: color-mix(in srgb, var(--teal) 10%, var(--mantle));
+  background: var(--mix-teal-10-mantle);
 }
 
 .group-item.active {
   color: var(--blue);
   border-left-color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  background: var(--mix-blue-16-t);
 }
 
 .group-item-count {
   font-family: var(--font-mono);
   font-size: var(--fs-base);
   color: var(--yellow);
-  background: color-mix(in srgb, var(--yellow) 14%, var(--mantle));
+  background: var(--mix-yellow-14-mantle);
   padding: 1px 5px;
   border-radius: 3px;
 }
 
 .group-item.active .group-item-count {
-  background: color-mix(in srgb, var(--blue) 22%, transparent);
+  background: var(--mix-blue-22-t);
   color: var(--sky);
 }
 
@@ -285,7 +284,7 @@ body.sidebar-collapsed #sidebar {
 
 .search-input-row:focus-within {
   border-color: var(--blue);
-  box-shadow: 0 0 0 1px color-mix(in srgb, var(--blue) 35%, transparent);
+  box-shadow: 0 0 0 1px var(--mix-blue-35-t);
 }
 
 #search-clear {
@@ -328,15 +327,15 @@ body.sidebar-collapsed #sidebar {
 }
 
 .toolbar-filter-chip.book-row-chip-language {
-  background: color-mix(in srgb, var(--blue) 16%, var(--base));
+  background: var(--mix-blue-16-base);
 }
 
 .toolbar-filter-chip.book-row-chip-series {
-  background: color-mix(in srgb, var(--lavender) 16%, var(--base));
+  background: var(--mix-lavender-16-base);
 }
 
 .toolbar-filter-chip.book-row-chip-tag {
-  background: color-mix(in srgb, var(--teal) 14%, var(--base));
+  background: var(--mix-teal-14-base);
 }
 
 #count {
@@ -361,7 +360,7 @@ body.sidebar-collapsed #sidebar {
   width: 10px;
   height: 10px;
   border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--teal) 35%, transparent);
+  border: 2px solid var(--mix-teal-35-t);
   border-top-color: var(--teal);
   animation: scan-spin 0.9s linear infinite;
 }
@@ -398,7 +397,7 @@ body.sidebar-collapsed #sidebar {
   width: 28px;
   height: 28px;
   border-radius: 999px;
-  border: 2px solid color-mix(in srgb, var(--teal) 28%, transparent);
+  border: 2px solid var(--mix-teal-28-t);
   border-top-color: var(--teal);
   animation: scan-spin 0.9s linear infinite;
 }
@@ -425,7 +424,7 @@ body.sidebar-collapsed #sidebar {
 }
 
 .book-row:hover {
-  background: color-mix(in srgb, var(--teal) 8%, var(--base));
+  background: var(--mix-teal-8-base);
 }
 
 .book-row-header {
@@ -512,7 +511,7 @@ body.sidebar-collapsed #sidebar {
 
 .active-view-banner-delete:hover {
   color: var(--peach);
-  background: color-mix(in srgb, var(--peach) 12%, transparent);
+  background: var(--mix-peach-12-t);
 }
 
 .book-row-chips {
@@ -548,17 +547,17 @@ body.sidebar-collapsed #sidebar {
 
 .book-row-chip-language {
   color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 16%, transparent);
+  background: var(--mix-blue-16-t);
 }
 
 .book-row-chip-series {
   color: var(--lavender);
-  background: color-mix(in srgb, var(--lavender) 16%, transparent);
+  background: var(--mix-lavender-16-t);
 }
 
 .book-row-chip-tag {
   color: var(--teal);
-  background: color-mix(in srgb, var(--teal) 14%, transparent);
+  background: var(--mix-teal-14-t);
 }
 
 .book-row-author {
@@ -668,7 +667,7 @@ body.sidebar-collapsed #sidebar {
 #stats-btn:not(.current):hover {
   color: var(--mauve);
   border-color: var(--mauve);
-  background: color-mix(in srgb, var(--mauve) 12%, var(--surface0));
+  background: var(--mix-mauve-12-surface0);
 }
 
 #library-btn.current,
@@ -853,7 +852,8 @@ body.sidebar-collapsed #sidebar {
 }
 
 @media (max-width: 720px) {
-  #sidebar-resizer {
+  #sidebar-resizer,
+  #views-resizer {
     display: none;
   }
 
@@ -1095,17 +1095,17 @@ input[type="range"].prefs-input {
 
 .prefs-btn:hover {
   border-color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, var(--surface0));
+  background: var(--mix-blue-12-surface0);
 }
 
 .prefs-btn-primary {
-  background: color-mix(in srgb, var(--blue) 20%, var(--surface0));
+  background: var(--mix-blue-20-surface0);
   border-color: var(--blue);
   color: var(--blue);
 }
 
 .prefs-btn-primary:hover {
-  background: color-mix(in srgb, var(--blue) 30%, var(--surface0));
+  background: var(--mix-blue-30-surface0);
 }
 
 #prefs-footer {
@@ -1219,7 +1219,7 @@ input[type="range"].prefs-input {
 }
 
 .app-menu-row:hover {
-  background: var(--base);
+  background: var(--mix-teal-8-base);
   color: var(--text);
 }
 
@@ -1377,7 +1377,7 @@ input[type="range"].prefs-input {
 }
 
 .app-font-family-choice:hover {
-  background: var(--surface1);
+  background: var(--mix-teal-14-base);
 }
 
 .app-font-family-choice.is-active {
@@ -1392,12 +1392,27 @@ input[type="range"].prefs-input {
 
 /* ── Views ── */
 
+#views-resizer {
+  height: 4px;
+  flex-shrink: 0;
+  cursor: row-resize;
+  background: transparent;
+  touch-action: none;
+  transition: background 0.15s;
+}
+
+#views-resizer:hover {
+  background: var(--mix-surface1-60-t);
+}
+
+body.resizing-views {
+  cursor: row-resize;
+  user-select: none;
+}
+
 .views-section {
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: calc(var(--views-bottom-rows) * var(--views-row-h));
-  height: calc((var(--views-visible-rows) + 1) * var(--views-row-h));
+  flex-shrink: 0;
+  height: var(--views-h);
   display: flex;
   flex-direction: column;
   background: var(--mantle);
@@ -1406,14 +1421,13 @@ input[type="range"].prefs-input {
 .views-items {
   flex: 1;
   min-height: 0;
-  overflow: hidden;
-}
-
-.views-items-inner {
-  height: calc(var(--views-visible-rows) * var(--views-row-h));
   overflow-y: auto;
   scrollbar-width: thin;
   scrollbar-color: var(--surface1) transparent;
+}
+
+.views-items-inner {
+  height: auto;
 }
 
 .views-header-actions {
@@ -1452,12 +1466,12 @@ input[type="range"].prefs-input {
 
 .view-action-btn:hover {
   color: var(--blue);
-  background: color-mix(in srgb, var(--blue) 12%, transparent);
+  background: var(--mix-blue-12-t);
 }
 
 .view-action-delete:hover {
   color: var(--peach);
-  background: color-mix(in srgb, var(--peach) 12%, transparent);
+  background: var(--mix-peach-12-t);
 }
 
 .view-item {
@@ -1552,7 +1566,7 @@ input[type="range"].prefs-input {
 #view-to-filter-btn:not(:disabled):hover {
   color: var(--mauve);
   border-color: var(--mauve);
-  background: color-mix(in srgb, var(--mauve) 12%, var(--surface0));
+  background: var(--mix-mauve-12-surface0);
 }
 
 #view-to-filter-btn:disabled {
@@ -1602,7 +1616,7 @@ input[type="range"].prefs-input {
 
 .book-row-add-btn:hover:not(:disabled) {
   color: var(--mauve);
-  background: color-mix(in srgb, var(--mauve) 12%, transparent);
+  background: var(--mix-mauve-12-t);
 }
 
 .book-row-add-btn:disabled {
@@ -1621,7 +1635,7 @@ body.no-views .book-row-add-btn {
 
 .book-row-remove-btn:hover {
   color: var(--peach);
-  background: color-mix(in srgb, var(--peach) 12%, transparent);
+  background: var(--mix-peach-12-t);
 }
 
 /* ── View picker dropdown ── */
@@ -1655,7 +1669,7 @@ body.no-views .book-row-add-btn {
 }
 
 .view-picker-item:hover {
-  background: color-mix(in srgb, var(--mauve) 14%, var(--mantle));
+  background: var(--mix-mauve-14-mantle);
   color: var(--mauve);
 }
 
@@ -1663,7 +1677,7 @@ body.no-views .book-row-add-btn {
 
 .book-row-chip-view {
   color: var(--mauve);
-  background: color-mix(in srgb, var(--mauve) 16%, transparent);
+  background: var(--mix-mauve-16-t);
   border: none;
   appearance: none;
 }

@@ -116,7 +116,7 @@ body.sidebar-collapsed .reader-sidebar {
 }
 .reader-library-action:hover {
   color: var(--mauve);
-  background: var(--surface1);
+  background: var(--mix-teal-8-base);
   border-color: var(--mauve);
 }
 .reader-library-action::after {
@@ -280,7 +280,7 @@ body.sidebar-collapsed .reader-sidebar {
 .group-item:hover,
 .group-item:visited:hover {
   color: var(--text);
-  background: var(--surface0);
+  background: var(--mix-teal-8-base);
   text-decoration: none;
 }
 .group-item.active {
@@ -704,7 +704,7 @@ body.sidebar-collapsed .reader-sidebar {
   outline: none;
 }
 .reader-font-choice:hover {
-  background: var(--surface1);
+  background: var(--mix-teal-14-base);
 }
 .reader-font-choice.reader-choice-active {
   outline: none;
