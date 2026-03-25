@@ -808,7 +808,12 @@
         return;
       }
       runSearch(searchQuery);
-      setActiveSearchMatch(0);
+      var matchIndexInChapter = 0;
+      for (var i = 0; i < activeBookSearchIndex; i++) {
+        if (bookSearchMatches[i].chapter === activeMatch.chapter)
+          matchIndexInChapter++;
+      }
+      setActiveSearchMatch(matchIndexInChapter);
       updateSearchUI();
     }
 
@@ -1312,12 +1317,6 @@
     if (searchTools) {
       searchTools.addEventListener("mousedown", function (event) {
         event.stopPropagation();
-      });
-      searchTools.addEventListener("mouseenter", function () {
-        if (!searchPanel.classList.contains("open")) queueOpenSearch();
-      });
-      searchTools.addEventListener("mouseleave", function () {
-        clearTimeout(searchOpenTimer);
       });
     }
     if (searchPanel) {

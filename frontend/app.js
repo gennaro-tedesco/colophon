@@ -38,6 +38,10 @@
   const drilldownClose = document.getElementById("drilldown-close");
   const continueReading = document.getElementById("continue-reading");
   const viewToFilterBtn = document.getElementById("view-to-filter-btn");
+  const statsBtnStatsIcon =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12c.552 0 1.005-.449.95-.998a10 10 0 0 0-8.953-8.951c-.55-.055-.998.398-.998.95v8a1 1 0 0 0 1 1z"/><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/></svg>';
+  const statsBtnViewIcon =
+    '<svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5A2.5 2.5 0 0 1 6.5 17H20"/><path d="M6.5 2H20v20H6.5A2.5 2.5 0 0 1 4 19.5v-15A2.5 2.5 0 0 1 6.5 2z"/></svg>';
 
   const GROUP_LABELS = {
     language: "Language",
@@ -999,6 +1003,10 @@
     clearFilters();
   });
   statsBtn.addEventListener("click", function () {
+    if (currentView === "stats" && activeViewId) {
+      setView("library");
+      return;
+    }
     setView("stats");
   });
   updateViewButtons();
@@ -1146,8 +1154,17 @@
       activeViewId === "" &&
       !hasActiveFilters() &&
       search.value.trim() === "";
+    const statsReturnsToView = currentView === "stats" && activeViewId !== "";
     libraryBtn.classList.toggle("current", cleanLibrary);
-    statsBtn.classList.toggle("current", currentView === "stats");
+    statsBtn.classList.toggle(
+      "current",
+      currentView === "stats" && !statsReturnsToView,
+    );
+    statsBtn.dataset.tooltip = statsReturnsToView ? "view" : "stats";
+    statsBtn.setAttribute("aria-label", statsReturnsToView ? "View" : "Stats");
+    statsBtn.innerHTML = statsReturnsToView
+      ? statsBtnViewIcon
+      : statsBtnStatsIcon;
   }
 
   function closeDrilldownModal() {

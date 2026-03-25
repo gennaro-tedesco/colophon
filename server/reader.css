@@ -99,7 +99,7 @@ body.sidebar-collapsed .reader-sidebar {
   border-radius: 4px;
   color: var(--text);
   font-size: 22px;
-  padding: 2px 6px;
+  padding: calc(8px + var(--fs-base) * 0.175);
   cursor: pointer;
   transition:
     border-color 0.15s,
@@ -413,27 +413,31 @@ body.sidebar-collapsed .reader-sidebar {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
+  width: 48px;
+  height: 48px;
   border: none;
   background: transparent;
-  color: var(--reader-shell-fg);
-  font-size: 44px;
+  color: var(--overlay1);
   cursor: pointer;
   padding: 0;
   transition:
-    transform 0.2s ease,
+    transform 0.3s ease,
     color 0.15s ease;
   transform-origin: center;
+}
+.reader-menu-toggle svg {
+  width: 36px;
+  height: 36px;
 }
 .reader-menu-toggle,
 .reader-menu-toggle:hover,
 .reader-menu-toggle:active,
 .reader-menu-toggle:focus {
-  color: var(--reader-shell-fg);
+  color: var(--overlay1);
 }
 .reader-menu-toggle:hover,
 .reader-menu-toggle.open {
+  color: var(--mauve);
   transform: rotate(180deg);
 }
 .reader-menu-panel {
