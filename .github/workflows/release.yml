@@ -14,6 +14,7 @@ jobs:
     strategy:
       matrix:
         arch: [arm64, amd64]
+
     steps:
       - uses: actions/checkout@v4
 
@@ -36,9 +37,23 @@ jobs:
           VERSION: ${{ github.ref_name }}
         run: wails build -platform darwin/${{ matrix.arch }} -ldflags "-X main.version=${VERSION}"
 
+      - name: Ad-hoc sign app
+        run: codesign --force --deep --sign - build/bin/colophon.app
+
+      - name: Verify signature
+        run: codesign --verify --deep --strict --verbose=2 build/bin/colophon.app
+
+      - name: Install create-dmg
+        run: brew install create-dmg
+
+      - name: Prepare DMG contents
+        run: |
+          rm -rf dist
+          mkdir -p dist
+          cp -R build/bin/colophon.app dist/
+
       - name: Create DMG
         run: |
-          brew install create-dmg
           create-dmg \
             --volname "colophon" \
             --window-size 600 400 \
@@ -46,12 +61,12 @@ jobs:
             --app-drop-link 450 200 \
             --no-internet-enable \
             "colophon-${{ matrix.arch }}.dmg" \
-            build/bin/colophon.app
+            dist
 
       - uses: actions/upload-artifact@v4
         with:
           name: dmg-${{ matrix.arch }}
-          path: "*.dmg"
+          path: colophon-${{ matrix.arch }}.dmg
 
   release:
     needs: build

@@ -287,9 +287,67 @@ body.sidebar-collapsed #sidebar {
   box-shadow: 0 0 0 1px var(--mix-blue-35-t);
 }
 
+#search-scope {
+  background: none;
+  border: none;
+  border-radius: 4px;
+  color: var(--overlay0);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  padding: 0;
+  cursor: pointer;
+  width: 36px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: flex-end;
+}
+
+#search-scope:hover,
+#search-scope-wrap.open #search-scope {
+  color: var(--overlay0);
+  background: none;
+}
+
+#search-scope-wrap {
+  position: absolute;
+  right: 30px;
+  top: 50%;
+  flex: 0 0 auto;
+  min-width: 0;
+  transform: translateY(-50%);
+}
+
+#search-scope-menu {
+  left: 50%;
+  right: auto;
+  top: calc(100% - 8px);
+  width: 120px;
+  max-height: none;
+  overflow-y: visible;
+  transform-origin: top right;
+  transform: translateX(-50%) scaleY(0);
+  transition:
+    opacity 0.12s ease,
+    transform 0.16s ease;
+}
+
+#search-scope-wrap.open #search-scope-menu {
+  transform: translateX(-50%) scaleY(1);
+}
+
+#search-scope svg {
+  flex: 0 0 auto;
+}
+
+#search-scope-menu .app-font-family-choice {
+  font-family: var(--font-mono);
+  font-size: var(--fs-sm);
+  color: var(--overlay1);
+}
+
 #search-clear {
   position: absolute;
-  right: 10px;
+  right: 6px;
   background: none;
   border: none;
   cursor: pointer;

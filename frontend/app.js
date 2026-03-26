@@ -24,6 +24,9 @@
   const stats = document.getElementById("stats");
   const logo = document.querySelector(".logo");
   const search = document.getElementById("search");
+  const searchScopeEl = document.getElementById("search-scope");
+  const searchScopeWrap = document.getElementById("search-scope-wrap");
+  const searchScopeMenu = document.getElementById("search-scope-menu");
   const searchClear = document.getElementById("search-clear");
   const activeFiltersEl = document.getElementById("active-filters");
   const count = document.getElementById("count");
@@ -82,6 +85,17 @@
   let scanHideTimer = null;
   let scanVisibleAt = 0;
   let startupScanPending = false;
+  let activeViewAddOpen = false;
+  let activeViewAddQuery = "";
+  let searchScope = "all";
+  const SEARCH_SCOPES = [
+    { value: "all", label: "all" },
+    { value: "title", label: "title" },
+    { value: "authors", label: "authors" },
+    { value: "series", label: "series" },
+    { value: "tags", label: "tags" },
+    { value: "language", label: "language" },
+  ];
 
   function clampSidebarWidth(value) {
     return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value));
@@ -783,6 +797,11 @@
     appTheme.setAttribute("aria-expanded", "false");
   }
 
+  function closeSearchScopeMenu() {
+    searchScopeWrap.classList.remove("open");
+    searchScopeEl.setAttribute("aria-expanded", "false");
+  }
+
   function openAppFontFamilyMenu() {
     appFontFamilyWrap.classList.add("open");
     appFontFamily.setAttribute("aria-expanded", "true");
@@ -791,6 +810,11 @@
   function openAppThemeMenu() {
     appThemeWrap.classList.add("open");
     appTheme.setAttribute("aria-expanded", "true");
+  }
+
+  function openSearchScopeMenu() {
+    searchScopeWrap.classList.add("open");
+    searchScopeEl.setAttribute("aria-expanded", "true");
   }
 
   function renderAppFontFamilyChoices(fonts, selected) {
@@ -857,6 +881,58 @@
       appThemeMenu.appendChild(choice);
     });
     updateAppThemeButton(normalizedSelected);
+  }
+
+  function updateSearchScopeButton(value) {
+    searchScopeEl.dataset.value = value || "all";
+  }
+
+  function updateSearchPlaceholder(value) {
+    var normalizedValue = value || "all";
+    search.placeholder =
+      normalizedValue === "all"
+        ? "search title, authors, tags..."
+        : "search " + normalizedValue;
+  }
+
+  function updateSearchScopeChoices(value) {
+    Array.from(
+      searchScopeMenu.querySelectorAll(".app-font-family-choice"),
+    ).forEach(function (choice) {
+      const active = choice.dataset.value === (value || "all");
+      choice.classList.toggle("is-active", active);
+      choice.setAttribute("aria-selected", active ? "true" : "false");
+    });
+  }
+
+  function renderSearchScopeChoices(selected) {
+    var normalizedSelected = selected || "all";
+    searchScopeMenu.innerHTML = "";
+    SEARCH_SCOPES.forEach(function (item) {
+      const choice = document.createElement("button");
+      choice.type = "button";
+      choice.className = "app-font-family-choice";
+      choice.dataset.value = item.value;
+      choice.textContent = item.label;
+      choice.setAttribute("role", "option");
+      var isActive = item.value === normalizedSelected;
+      choice.classList.toggle("is-active", isActive);
+      choice.setAttribute("aria-selected", isActive ? "true" : "false");
+      choice.addEventListener("click", function (event) {
+        event.stopPropagation();
+        searchScope = item.value;
+        updateSearchScopeButton(item.value);
+        updateSearchPlaceholder(item.value);
+        updateSearchScopeChoices(item.value);
+        closeSearchScopeMenu();
+        renderFiltered();
+        updateViewToFilterBtn();
+        updateViewButtons();
+      });
+      searchScopeMenu.appendChild(choice);
+    });
+    updateSearchScopeButton(normalizedSelected);
+    updateSearchPlaceholder(normalizedSelected);
   }
 
   appDirPick.addEventListener("click", function () {
@@ -966,6 +1042,17 @@
     if (!appThemeWrap.contains(event.target)) {
       closeAppThemeMenu();
     }
+    if (!searchScopeWrap.contains(event.target)) {
+      closeSearchScopeMenu();
+    }
+    if (
+      activeViewAddOpen &&
+      !event.target.closest(".active-view-add-section")
+    ) {
+      activeViewAddOpen = false;
+      activeViewAddQuery = "";
+      renderFiltered();
+    }
   });
 
   (function initContinueReading() {
@@ -989,6 +1076,16 @@
     updateViewToFilterBtn();
     updateViewButtons();
   });
+
+  if (searchScopeEl) {
+    renderSearchScopeChoices(searchScope);
+    searchScopeWrap.addEventListener("mouseenter", function () {
+      openSearchScopeMenu();
+    });
+    searchScopeWrap.addEventListener("mouseleave", function () {
+      closeSearchScopeMenu();
+    });
+  }
 
   searchClear.addEventListener("click", () => {
     search.value = "";
@@ -1110,6 +1207,8 @@
   function clearFilters() {
     activeFilters = createEmptyFilters();
     activeViewId = "";
+    activeViewAddOpen = false;
+    activeViewAddQuery = "";
     search.value = "";
     searchClear.classList.remove("visible");
     updateNavState();
@@ -1446,6 +1545,31 @@
     }
   }
 
+  function searchHaystack(book, scope) {
+    switch (scope) {
+      case "title":
+        return (book.title || "").toLowerCase();
+      case "authors":
+        return (book.authors || []).join(" ").toLowerCase();
+      case "series":
+        return (book.series || "").toLowerCase();
+      case "tags":
+        return (book.tags || []).join(" ").toLowerCase();
+      case "language":
+        return (book.language || "").toLowerCase();
+      default:
+        return [
+          book.title || "",
+          ...(book.authors || []),
+          book.series || "",
+          ...(book.tags || []),
+          book.language || "",
+        ]
+          .join(" ")
+          .toLowerCase();
+    }
+  }
+
   function filterBooks() {
     const q = search.value.trim().toLowerCase();
     const activeView = activeViewId
@@ -1475,15 +1599,7 @@
       }
 
       if (q) {
-        const haystack = [
-          book.title || "",
-          ...(book.authors || []),
-          book.series || "",
-          ...(book.tags || []),
-          book.language || "",
-        ]
-          .join(" ")
-          .toLowerCase();
+        const haystack = searchHaystack(book, searchScope);
         if (!haystack.includes(q)) return false;
       }
 
@@ -1519,17 +1635,19 @@
 
   function renderBookList(filtered) {
     list.innerHTML = "";
+    const activeView = activeViewId
+      ? allViews.find(function (view) {
+          return view.id === activeViewId;
+        })
+      : null;
 
     if (activeViewId) {
-      const activeView = allViews.find(function (view) {
-        return view.id === activeViewId;
-      });
       if (activeView) {
         list.appendChild(buildActiveViewBanner(activeView));
       }
     }
 
-    if (filtered.length === 0) {
+    if (filtered.length === 0 && !activeView) {
       const emptyEl = document.createElement("div");
       emptyEl.className = "empty";
       emptyEl.textContent = "no books found";
@@ -1543,7 +1661,117 @@
         bookRow(book, activeViewId ? { viewId: activeViewId } : {}),
       );
     });
+    if (activeView) {
+      frag.appendChild(buildActiveViewAddSection(activeView));
+    }
     list.appendChild(frag);
+  }
+
+  function buildActiveViewAddSection(view) {
+    const wrap = document.createElement("div");
+    wrap.className = "active-view-add-section";
+
+    const row = document.createElement("div");
+    row.className = "book-row";
+
+    const header = document.createElement("div");
+    header.className = "book-row-header";
+
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "book-row-title-wrap";
+
+    if (activeViewAddOpen) {
+      const input = document.createElement("input");
+      input.type = "text";
+      input.className = "view-name-input";
+      input.placeholder = "Search books…";
+      input.autocomplete = "off";
+      input.autocorrect = "off";
+      input.autocapitalize = "off";
+      input.spellcheck = false;
+      input.value = activeViewAddQuery;
+      input.addEventListener("click", function (event) {
+        event.stopPropagation();
+      });
+      input.addEventListener("input", function () {
+        activeViewAddQuery = input.value;
+        renderFiltered();
+      });
+      input.addEventListener("keydown", function (event) {
+        if (event.key === "Escape") {
+          activeViewAddOpen = false;
+          activeViewAddQuery = "";
+          renderFiltered();
+        }
+      });
+      titleWrap.appendChild(input);
+      setTimeout(function () {
+        input.focus();
+        input.setSelectionRange(input.value.length, input.value.length);
+      }, 0);
+    } else {
+      const title = document.createElement("span");
+      title.className = "book-row-title";
+      title.innerHTML = "&nbsp;";
+      titleWrap.appendChild(title);
+
+      const addBtn = document.createElement("button");
+      addBtn.type = "button";
+      addBtn.className = "book-row-add-btn";
+      addBtn.title = "Add to view";
+      addBtn.innerHTML =
+        '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
+      addBtn.addEventListener("click", function (event) {
+        event.stopPropagation();
+        activeViewAddOpen = true;
+        activeViewAddQuery = "";
+        renderFiltered();
+      });
+      titleWrap.appendChild(addBtn);
+    }
+
+    header.appendChild(titleWrap);
+    row.appendChild(header);
+    wrap.appendChild(row);
+
+    if (!activeViewAddOpen) return wrap;
+
+    const q = activeViewAddQuery.trim().toLowerCase();
+    if (!q) return wrap;
+
+    const activeViewPaths = new Set(view.bookPaths || []);
+    const matches = allBooks.filter(function (book) {
+      if (activeViewPaths.has(book.path)) return false;
+      const haystack = searchHaystack(book, searchScope);
+      return haystack.includes(q);
+    });
+
+    if (matches.length === 0) {
+      const emptyEl = document.createElement("div");
+      emptyEl.className = "empty";
+      emptyEl.textContent = "no books found";
+      wrap.appendChild(emptyEl);
+      return wrap;
+    }
+
+    matches.forEach(function (book) {
+      wrap.appendChild(
+        bookRow(book, {
+          disableOpen: true,
+          addAction: function () {
+            window.go.main.App.AddBooksToView(view.id, [book.path]).then(
+              function () {
+                activeViewAddOpen = false;
+                activeViewAddQuery = "";
+                mergeViewBooks(view.id, [book.path]);
+              },
+            );
+          },
+        }),
+      );
+    });
+
+    return wrap;
   }
 
   function buildActiveViewBanner(view) {
@@ -1843,6 +2071,8 @@
 
     item.addEventListener("click", function () {
       activeViewId = activeViewId === view.id ? "" : view.id;
+      activeViewAddOpen = false;
+      activeViewAddQuery = "";
       renderFiltered();
       updateViewButtons();
     });
@@ -2054,7 +2284,7 @@
     author.textContent = (book.authors || []).join(", ");
 
     let addBtn = null;
-    if (allViews.length > 0) {
+    if (!options.hideViewActions && allViews.length > 0) {
       addBtn = document.createElement("button");
       addBtn.type = "button";
       addBtn.className = "book-row-add-btn";
@@ -2063,6 +2293,10 @@
         '<svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="5.5" stroke-linecap="round" stroke-linejoin="round" class="lucide lucide-plus"><path d="M5 12h14"/><path d="M12 5v14"/></svg>';
       addBtn.addEventListener("click", function (e) {
         e.stopPropagation();
+        if (options.addAction) {
+          options.addAction(book);
+          return;
+        }
         openViewPickerDropdown(addBtn, function (view) {
           window.go.main.App.AddBooksToView(view.id, [book.path]).then(
             function () {
@@ -2150,6 +2384,9 @@
     row.classList.add("book-row-static");
 
     row.addEventListener("click", () => {
+      if (options.disableOpen) {
+        return;
+      }
       if (options.onOpen) {
         options.onOpen(book);
         return;

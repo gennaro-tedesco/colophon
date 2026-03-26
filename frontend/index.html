@@ -180,7 +180,38 @@
               type="text"
               placeholder="search titles, authors…"
               autocomplete="off"
+              autocorrect="off"
+              autocapitalize="off"
+              spellcheck="false"
             />
+            <div id="search-scope-wrap" class="app-font-family-wrap">
+              <button
+                id="search-scope"
+                type="button"
+                aria-haspopup="listbox"
+                aria-expanded="false"
+              >
+                <svg
+                  xmlns="http://www.w3.org/2000/svg"
+                  width="28"
+                  height="28"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  stroke-width="2"
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                >
+                  <path d="m6 9 6 6 6-6" />
+                </svg>
+              </button>
+              <div
+                id="search-scope-menu"
+                class="app-font-family-menu"
+                role="listbox"
+                aria-label="Search scope"
+              ></div>
+            </div>
             <button id="search-clear" title="Clear search">✕</button>
           </div>
         </div>

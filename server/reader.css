@@ -190,6 +190,10 @@ body.sidebar-collapsed .reader-sidebar {
     opacity 0.18s ease,
     transform 0.18s ease;
 }
+.reader-bottom-nav svg {
+  display: block;
+  flex: 0 0 auto;
+}
 .reader-bottom-nav:link,
 .reader-bottom-nav:visited,
 .reader-bottom-nav:active,
