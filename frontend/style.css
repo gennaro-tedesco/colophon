@@ -465,7 +465,7 @@ body.sidebar-collapsed #sidebar {
   align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 8px 0 14px;
+  padding: 8px 20px 14px;
 }
 
 .active-view-banner-title-wrap {

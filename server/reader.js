@@ -94,6 +94,7 @@
     var menuToggle = document.getElementById("reader-menu-toggle");
     var menuPanel = document.getElementById("reader-menu-panel");
     var searchTools = document.getElementById("reader-search-tools");
+    var searchToggle = document.getElementById("reader-search-toggle");
     var searchPanel = document.getElementById("reader-search-panel");
     var chapterProgressFill = document.getElementById(
       "reader-chapter-progress-fill",
@@ -190,6 +191,7 @@
     var activeSearchIndex = -1;
     var hideTimer = null;
     var searchOpenTimer = null;
+    var searchHideTimer = null;
     var frameCloseBound = false;
     var frameScrollBound = false;
     var frameSetupDoc = null;
@@ -921,6 +923,7 @@
       var wasOpen = searchPanel.classList.contains("open");
       searchPanel.classList.add("open");
       searchTools.classList.add("open");
+      if (searchToggle) searchToggle.classList.add("open");
       if (shouldFocus && searchInput) searchInput.focus();
       if (!wasOpen && searchQuery && !searchMatches.length) {
         if (searchScope === "book") {
@@ -936,6 +939,7 @@
       if (!searchPanel.classList.contains("open")) return;
       searchPanel.classList.remove("open");
       searchTools.classList.remove("open");
+      if (searchToggle) searchToggle.classList.remove("open");
       clearSearchHighlights();
     }
 
@@ -1118,6 +1122,13 @@
       frameCloseBound = false;
       frameScrollBound = false;
       applyTheme();
+      var scrollbarWidth =
+        frame.contentWindow.innerWidth -
+        frame.contentDocument.documentElement.clientWidth;
+      document.documentElement.style.setProperty(
+        "--frame-scrollbar-width",
+        scrollbarWidth + "px",
+      );
       bindFrameClose();
       bindFrameNavHover();
       bindFrameScroll();
@@ -1319,9 +1330,33 @@
         event.stopPropagation();
       });
     }
+    if (searchToggle) {
+      searchToggle.addEventListener("mouseenter", function () {
+        clearTimeout(searchHideTimer);
+        if (!searchPanel.classList.contains("open")) queueOpenSearch();
+      });
+      searchToggle.addEventListener("mouseleave", function () {
+        clearTimeout(searchOpenTimer);
+        searchHideTimer = setTimeout(function () {
+          searchPanel.classList.remove("open");
+          searchTools.classList.remove("open");
+          searchToggle.classList.remove("open");
+        }, 300);
+      });
+    }
     if (searchPanel) {
       searchPanel.addEventListener("mousedown", function (event) {
         event.stopPropagation();
+      });
+      searchPanel.addEventListener("mouseenter", function () {
+        clearTimeout(searchHideTimer);
+      });
+      searchPanel.addEventListener("mouseleave", function () {
+        searchHideTimer = setTimeout(function () {
+          searchPanel.classList.remove("open");
+          searchTools.classList.remove("open");
+          searchToggle.classList.remove("open");
+        }, 300);
       });
     }
     document.addEventListener("mousedown", function (event) {

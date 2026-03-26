@@ -402,12 +402,27 @@ body.sidebar-collapsed .reader-sidebar {
 .reader-search-tools {
   position: absolute;
   top: 32px;
-  right: 36px;
+  right: calc(36px + var(--frame-scrollbar-width, 0px));
   z-index: 2;
   display: flex;
   align-items: flex-start;
-  width: 56px;
-  height: 56px;
+}
+.reader-search-toggle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border: none;
+  background: transparent;
+  color: var(--overlay1);
+  cursor: pointer;
+  padding: 0;
+  transition: color 0.15s ease;
+}
+.reader-search-toggle:hover,
+.reader-search-toggle.open {
+  color: var(--mauve);
 }
 .reader-menu-toggle {
   display: inline-flex;
@@ -452,8 +467,22 @@ body.sidebar-collapsed .reader-sidebar {
   display: block;
 }
 .reader-search-panel {
+  display: block;
   left: auto;
   right: calc(100% + 4px);
+  visibility: hidden;
+  opacity: 0;
+  transform: scaleX(0) translateY(-50%);
+  transform-origin: right center;
+  pointer-events: none;
+  transition: transform 0.3s ease, opacity 0.2s ease, visibility 0s 0.2s;
+}
+.reader-search-panel.open {
+  visibility: visible;
+  opacity: 1;
+  transform: scaleX(1) translateY(-50%);
+  pointer-events: auto;
+  transition: transform 0.3s ease, opacity 0.2s ease, visibility 0s;
 }
 .reader-search {
   display: flex;
