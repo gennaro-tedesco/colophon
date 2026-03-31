@@ -17,27 +17,16 @@ type ScanResult struct {
 	Book    model.Book
 }
 
+type fileInfo struct {
+	path    string
+	modTime time.Time
+}
+
 // Stream walks root for EPUB files and sends parsed results to out as they complete.
 // It closes out when all workers finish. The caller must drain out.
 func Stream(root string, out chan<- ScanResult) error {
-	type fileInfo struct {
-		path    string
-		modTime time.Time
-	}
-	var files []fileInfo
-	if err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return nil
-		}
-		if !d.IsDir() && strings.ToLower(filepath.Ext(path)) == ".epub" {
-			info, err2 := d.Info()
-			if err2 != nil {
-				return nil
-			}
-			files = append(files, fileInfo{path, info.ModTime()})
-		}
-		return nil
-	}); err != nil {
+	files, err := collectFiles(root)
+	if err != nil {
 		close(out)
 		return err
 	}
@@ -71,6 +60,33 @@ func Stream(root string, out chan<- ScanResult) error {
 	}()
 
 	return nil
+}
+
+func collectFiles(root string) ([]fileInfo, error) {
+	var files []fileInfo
+
+	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return nil
+		}
+		if d.IsDir() {
+			if path != root && strings.HasPrefix(d.Name(), ".") {
+				return fs.SkipDir
+			}
+			return nil
+		}
+		if strings.ToLower(filepath.Ext(path)) != ".epub" {
+			return nil
+		}
+		info, err := d.Info()
+		if err != nil {
+			return nil
+		}
+		files = append(files, fileInfo{path, info.ModTime()})
+		return nil
+	})
+
+	return files, err
 }
 
 func parseBook(root, path string) (model.Book, bool) {
