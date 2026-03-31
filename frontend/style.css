@@ -12,6 +12,7 @@
   --sidebar-w: 280px;
   --views-row-h: 36px;
   --views-h: 288px;
+  --menu-overlap: 8px;
 }
 
 html,
@@ -236,6 +237,8 @@ body.sidebar-collapsed #sidebar {
 .search-wrapper {
   flex: 1;
   display: flex;
+  align-items: stretch;
+  gap: 8px;
   min-width: 0;
 }
 
@@ -248,7 +251,8 @@ body.sidebar-collapsed #sidebar {
 }
 
 .search-input-row {
-  width: 100%;
+  flex: 1;
+  min-width: 0;
   position: relative;
   display: flex;
   align-items: center;
@@ -257,7 +261,7 @@ body.sidebar-collapsed #sidebar {
   background: var(--surface0);
   border: 1px solid var(--surface1);
   border-radius: 4px;
-  padding: 6px 36px 6px 8px;
+  padding: 6px 28px 6px 8px;
   transition:
     border-color 0.15s,
     box-shadow 0.15s;
@@ -290,50 +294,55 @@ body.sidebar-collapsed #sidebar {
 #search-scope {
   background: none;
   border: none;
-  border-radius: 4px;
-  color: var(--overlay0);
+  color: var(--overlay1);
   font-family: var(--font-sans);
-  font-size: var(--fs-base);
+  font-size: var(--fs-sm);
   padding: 0;
   cursor: pointer;
-  width: 36px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: flex-end;
-  transform: rotate(90deg) translateX(-12px);
+  width: 100%;
+  height: 100%;
 }
 
 #search-scope:hover,
 #search-scope-wrap.open #search-scope {
-  color: var(--overlay0);
-  background: none;
+  color: var(--text);
 }
 
 #search-scope-wrap {
-  position: absolute;
-  right: 5px;
-  top: 50%;
+  position: relative;
   flex: 0 0 auto;
-  min-width: 0;
-  transform: translateY(-50%);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--surface0);
+  border: 1px solid var(--surface1);
+  border-radius: 4px;
+  transition:
+    border-color 0.15s,
+    box-shadow 0.15s;
+}
+
+#search-scope-wrap.open {
+  border-color: var(--blue);
 }
 
 #search-scope-menu {
-  left: 50%;
-  right: auto;
-  top: calc(100% - 8px);
-  width: 120px;
+  left: 0;
+  right: 0;
+  top: calc(100% - var(--menu-overlap));
+  padding-top: var(--menu-overlap);
+  width: auto;
   max-height: none;
   overflow-y: visible;
   transform-origin: top right;
-  transform: translateX(-50%) scaleY(0);
+  transform: scaleY(0);
   transition:
     opacity 0.12s ease,
     transform 0.16s ease;
 }
 
 #search-scope-wrap.open #search-scope-menu {
-  transform: translateX(-50%) scaleY(1);
+  transform: scaleY(1);
 }
 
 
@@ -1389,14 +1398,14 @@ input[type="range"].prefs-input {
 
 .app-submenu {
   position: absolute;
-  left: calc(100% - 8px);
-  top: -8px;
+  left: calc(100% - var(--menu-overlap));
+  top: calc(-1 * var(--menu-overlap));
   background: var(--mantle);
   backdrop-filter: blur(12px);
   border: 1px solid var(--surface1);
   border-radius: 8px;
   min-width: 220px;
-  padding: 8px 0;
+  padding: var(--menu-overlap) 0;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.12s ease;

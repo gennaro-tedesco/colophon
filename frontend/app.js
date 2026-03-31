@@ -638,6 +638,16 @@
       root.setAttribute("data-theme", cfg.theme);
     }
     initThemeMixes();
+    if (searchScopeEl) syncScopeWrapWidth();
+  }
+
+  function syncScopeWrapWidth() {
+    searchScopeMenu.style.width = "max-content";
+    searchScopeMenu.style.right = "auto";
+    var w = searchScopeMenu.offsetWidth;
+    searchScopeMenu.style.width = "";
+    searchScopeMenu.style.right = "";
+    searchScopeWrap.style.width = w + "px";
   }
 
   function openPreferences() {
@@ -921,7 +931,7 @@
   }
 
   function updateSearchScopeButton(value) {
-    searchScopeEl.dataset.value = value || "all";
+    searchScopeEl.textContent = t("scopes." + (value || "all"));
   }
 
   function searchPlaceholderForScope(value) {
@@ -1124,6 +1134,7 @@
 
   if (searchScopeEl) {
     renderSearchScopeChoices(searchScope);
+    syncScopeWrapWidth();
     searchScopeWrap.addEventListener("mouseenter", function () {
       openSearchScopeMenu();
     });
