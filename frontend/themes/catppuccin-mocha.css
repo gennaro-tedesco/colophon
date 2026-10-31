@@ -25,4 +25,6 @@
   --pink: #f5c2e7;
   --flamingo: #f2cdcd;
   --rosewater: #f5e0dc;
+  --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
 }

@@ -21,10 +21,10 @@ import (
 
 	xhtml "golang.org/x/net/html"
 
+	"colophon/internal/contract"
 	"colophon/model"
 	"colophon/scanner"
 )
-
 
 //go:embed reader_shell.html
 var readerShellHTML string
@@ -36,6 +36,11 @@ var readerCSS string
 var readerJS string
 
 var readerShellTmpl = template.Must(template.New("reader-shell").Parse(readerShellHTML))
+
+const (
+	coverCacheMaxAgeSeconds       = 86400
+	readerAssetCacheMaxAgeSeconds = 3600
+)
 
 type readerShellData struct {
 	Title          string
@@ -50,6 +55,18 @@ type readerShellData struct {
 	CurrentIndex   int
 	IframeSrc      template.URL
 	Theme          string
+	ContractScript string
+	ThemeFile      string
+	ThemeCSS       string
+	ReaderCSS      string
+	ReaderJS       string
+	Chapters       template.JS
+}
+
+type readerChapterMeta struct {
+	Title string `json:"title"`
+	Prev  int    `json:"prev"`
+	Next  int    `json:"next"`
 }
 
 type chapterDoc struct {
@@ -90,37 +107,39 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 	}
 
 	mux := http.NewServeMux()
+	mux.HandleFunc(contract.ScriptPath, contract.ServeScript)
+	mux.HandleFunc(contract.ResourcesPath, contract.ServeResources)
 
-	mux.HandleFunc("/api/library", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(contract.Routes["library"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(lib); err != nil {
 			return
 		}
 	})
 
-	mux.HandleFunc("/api/fonts", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(contract.Routes["fonts"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
 		if err := json.NewEncoder(w).Encode(fonts); err != nil {
 			return
 		}
 	})
 
-	mux.HandleFunc("/reader-assets/reader.css", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(contract.Routes["readerCSS"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/css; charset=utf-8")
 		if _, err := io.WriteString(w, readerCSS); err != nil {
 			return
 		}
 	})
 
-	mux.HandleFunc("/reader-assets/reader.js", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(contract.Routes["readerJS"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/javascript; charset=utf-8")
 		if _, err := io.WriteString(w, readerJS); err != nil {
 			return
 		}
 	})
 
-	mux.HandleFunc("/reader-search/", func(w http.ResponseWriter, r *http.Request) {
-		epubRel := strings.TrimPrefix(r.URL.Path, "/reader-search/")
+	mux.HandleFunc(contract.Routes["search"], func(w http.ResponseWriter, r *http.Request) {
+		epubRel := strings.TrimPrefix(r.URL.Path, contract.Routes["search"])
 		absEpub, ok := resolveEpubPath(root, epubRel)
 		if !ok {
 			http.NotFound(w, r)
@@ -138,8 +157,8 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 		}
 	})
 
-	mux.HandleFunc("/cover/", func(w http.ResponseWriter, r *http.Request) {
-		epubRel := strings.TrimPrefix(r.URL.Path, "/cover/")
+	mux.HandleFunc(contract.Routes["cover"], func(w http.ResponseWriter, r *http.Request) {
+		epubRel := strings.TrimPrefix(r.URL.Path, contract.Routes["cover"])
 		entry := r.URL.Query().Get("entry")
 		if entry == "" {
 			http.NotFound(w, r)
@@ -170,7 +189,7 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 			}
 			defer rc.Close()
 			w.Header().Set("Content-Type", mediaTypeForEntry(entry))
-			w.Header().Set("Cache-Control", "public, max-age=86400")
+			w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(coverCacheMaxAgeSeconds))
 			if _, err := io.Copy(w, rc); err != nil {
 				return
 			}
@@ -179,7 +198,7 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 		http.NotFound(w, r)
 	})
 
-	mux.HandleFunc("/read/", func(w http.ResponseWriter, r *http.Request) {
+	mux.HandleFunc(contract.Routes["read"], func(w http.ResponseWriter, r *http.Request) {
 		epubRel, mode, assetPath, ok := parseReadRequestPath(r.URL.Path)
 		if !ok {
 			http.NotFound(w, r)
@@ -206,6 +225,7 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 }
 
 func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, title, meta string, cache *readerCache, theme string) {
+	theme = contract.NormalizeTheme(theme)
 	book, err := cache.load(absEpub)
 	if err != nil {
 		http.NotFound(w, r)
@@ -222,15 +242,30 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 	}
 
 	tocLabels := flattenTOCLabels(book.TOC)
-	currentTitle := fallbackChapterTitle(book.Chapters[chapterIndex].Title, chapterIndex)
-	if tocTitle := normalizeWhitespace(tocLabels[book.Spine[chapterIndex]]); tocTitle != "" {
-		currentTitle = tocTitle
+	isContinuation := make(map[int]bool)
+	for _, contIndices := range spineContinuations(book.Spine, book.TOC) {
+		for _, ci := range contIndices {
+			isContinuation[ci] = true
+		}
 	}
+	chapters := make([]readerChapterMeta, len(book.Chapters))
+	for i := range book.Chapters {
+		chapterTitle := fallbackChapterTitle(book.Chapters[i].Title, i)
+		if tocTitle := normalizeWhitespace(tocLabels[book.Spine[i]]); tocTitle != "" {
+			chapterTitle = tocTitle
+		}
+		chapters[i] = readerChapterMeta{
+			Title: chapterTitle,
+			Prev:  adjacentChapter(isContinuation, i, len(book.Chapters), -1),
+			Next:  adjacentChapter(isContinuation, i, len(book.Chapters), 1),
+		}
+	}
+	chaptersJSON, _ := json.Marshal(chapters)
 
 	data := readerShellData{
 		Title:          title,
 		Meta:           meta,
-		CurrentChapter: currentTitle,
+		CurrentChapter: chapters[chapterIndex].Title,
 		Progress:       strconv.Itoa(chapterIndex+1) + " / " + strconv.Itoa(len(book.Chapters)),
 		ChapterCount:   len(book.Chapters),
 		TOCHTML:        buildTOCHTML(book.TOC, book.Spine, epubRel, book.Spine[chapterIndex]),
@@ -238,24 +273,18 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 		CurrentIndex:   chapterIndex,
 		IframeSrc:      template.URL(readerChapterDocURL(epubRel, chapterIndex, r.URL.Query().Get("frag"))),
 		Theme:          theme,
+		ContractScript: contract.ScriptPath,
+		ThemeFile:      contract.ThemesPath + theme + ".css",
+		ThemeCSS:       contract.ThemePath,
+		ReaderCSS:      contract.Routes["readerCSS"],
+		ReaderJS:       contract.Routes["readerJS"],
+		Chapters:       template.JS(chaptersJSON),
 	}
-	isContinuation := make(map[int]bool)
-	for _, contIndices := range spineContinuations(book.Spine, book.TOC) {
-		for _, ci := range contIndices {
-			isContinuation[ci] = true
-		}
+	if prev := chapters[chapterIndex].Prev; prev >= 0 {
+		data.Prev = readerShellURL(epubRel, prev, "")
 	}
-	for prev := chapterIndex - 1; prev >= 0; prev-- {
-		if !isContinuation[prev] {
-			data.Prev = readerShellURL(epubRel, prev, "")
-			break
-		}
-	}
-	for next := chapterIndex + 1; next < len(book.Chapters); next++ {
-		if !isContinuation[next] {
-			data.Next = readerShellURL(epubRel, next, "")
-			break
-		}
+	if next := chapters[chapterIndex].Next; next >= 0 {
+		data.Next = readerShellURL(epubRel, next, "")
 	}
 
 	var out bytes.Buffer
@@ -367,7 +396,7 @@ func serveReaderAsset(w http.ResponseWriter, r *http.Request, absEpub, assetPath
 		}
 		defer rc.Close()
 		w.Header().Set("Content-Type", contentTypeForEntry(file))
-		w.Header().Set("Cache-Control", "public, max-age=3600")
+		w.Header().Set("Cache-Control", "public, max-age="+strconv.Itoa(readerAssetCacheMaxAgeSeconds))
 		if _, err := io.Copy(w, rc); err != nil {
 			return
 		}
@@ -393,10 +422,10 @@ func chapterIndexFromRequest(r *http.Request, chapterCount int) (int, error) {
 }
 
 func parseReadRequestPath(requestPath string) (string, string, string, bool) {
-	if !strings.HasPrefix(requestPath, "/read/") {
+	if !strings.HasPrefix(requestPath, contract.Routes["read"]) {
 		return "", "", "", false
 	}
-	trimmed := strings.TrimPrefix(requestPath, "/read/")
+	trimmed := strings.TrimPrefix(requestPath, contract.Routes["read"])
 	if trimmed == "" {
 		return "", "", "", false
 	}
@@ -828,7 +857,7 @@ func injectReaderBaseline(doc *xhtml.Node) {
 	}
 	script.AppendChild(&xhtml.Node{
 		Type: xhtml.TextNode,
-		Data: `(function(){var bg=localStorage.getItem('reader:bg')||'#073541';var fg=localStorage.getItem('reader:fg')||'#fdf6e2';var size=localStorage.getItem('reader:size')||'16px';var padX=localStorage.getItem('reader:px')||'72px';document.documentElement.style.setProperty('--reader-bg',bg);document.documentElement.style.setProperty('--reader-fg',fg);document.documentElement.style.setProperty('--reader-size',size);document.documentElement.style.setProperty('--reader-pad-x',padX);}());`,
+		Data: `(function(){var parentWindow=window.parent;if(!parentWindow||parentWindow===window)return;var parentDocument=parentWindow.document;var settings=parentWindow.Settings;if(!parentDocument||!settings)return;var defaults=parentWindow.getComputedStyle(parentDocument.documentElement);var root=document.documentElement;Object.keys(settings.readerProperties).forEach(function(name){var preference=settings.readerProperties[name];var value=localStorage.getItem(settings.readerStoragePrefix+preference)||defaults.getPropertyValue(settings.readerDefaults[preference]).trim();if(value)root.style.setProperty(name,value);});settings.readerStaticProperties.forEach(function(name){var value=defaults.getPropertyValue(name).trim();if(value)root.style.setProperty(name,value);});var font=defaults.getPropertyValue("--font-sans").trim();if(font)root.style.fontFamily=font;}());`,
 	})
 	head.AppendChild(script)
 
@@ -838,13 +867,7 @@ func injectReaderBaseline(doc *xhtml.Node) {
 	}
 	style.AppendChild(&xhtml.Node{
 		Type: xhtml.TextNode,
-		Data: `:root {
-  --reader-bg: #073541;
-  --reader-fg: #fdf6e2;
-  --reader-size: 16px;
-  --reader-pad-x: 72px;
-}
-html {
+		Data: `html {
   background: var(--reader-bg);
   color: var(--reader-fg);
   font-size: var(--reader-size);
@@ -853,11 +876,11 @@ body {
   background: var(--reader-bg);
   color: var(--reader-fg);
   box-sizing: border-box;
-  min-height: 100vh;
-  padding: 3rem var(--reader-pad-x) 4rem;
+  min-height: var(--reader-min-height);
+  padding: var(--reader-padding-top) var(--reader-pad-x) var(--reader-padding-bottom);
 }
 ::selection {
-  background: rgba(39, 139, 211, 0.35);
+  background: var(--reader-selection);
   color: var(--reader-fg);
 }
 `,
@@ -937,7 +960,7 @@ func rewriteAssetURL(rawValue, epubRel, chapterPath string) string {
 		return rawValue
 	}
 
-	rewritten := "/read/" + encodeURLPath(epubRel) + "/asset/" + encodeURLPath(resolvedPath)
+	rewritten := contract.Routes["read"] + encodeURLPath(epubRel) + "/asset/" + encodeURLPath(resolvedPath)
 	if parsed.RawQuery != "" {
 		rewritten += "?" + parsed.RawQuery
 	}
@@ -1020,19 +1043,28 @@ func fallbackChapterTitle(value string, index int) string {
 	return "Chapter " + strconv.Itoa(index+1)
 }
 
+func adjacentChapter(isContinuation map[int]bool, index, total, step int) int {
+	for i := index + step; i >= 0 && i < total; i += step {
+		if !isContinuation[i] {
+			return i
+		}
+	}
+	return -1
+}
+
 func readerShellURL(epubRel string, chapter int, fragment string) string {
 	values := url.Values{}
 	values.Set("chapter", strconv.Itoa(chapter))
 	if fragment != "" {
 		values.Set("frag", fragment)
 	}
-	return "/read/" + encodeURLPath(epubRel) + "?" + values.Encode()
+	return contract.Routes["read"] + encodeURLPath(epubRel) + "?" + values.Encode()
 }
 
 func readerChapterDocURL(epubRel string, chapter int, fragment string) string {
 	values := url.Values{}
 	values.Set("chapter", strconv.Itoa(chapter))
-	rewritten := "/read/" + encodeURLPath(epubRel) + "/chapter?" + values.Encode()
+	rewritten := contract.Routes["read"] + encodeURLPath(epubRel) + "/chapter?" + values.Encode()
 	if fragment != "" {
 		rewritten += "#" + url.PathEscape(fragment)
 	}

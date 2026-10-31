@@ -25,4 +25,10 @@
   --pink: #d33682;
   --flamingo: #d33682;
   --rosewater: #dc322f;
+  --reader-white: #ffffff;
+  --reader-paper-neutral: #f5f0e1;
+  --reader-background-dark: #002b36;
+  --reader-foreground-dark: #586e75;
+  --reader-backgrounds: var(--base), var(--crust), var(--reader-white), var(--reader-paper-neutral), var(--reader-background-dark), var(--text);
+  --reader-foregrounds: var(--text), var(--reader-background-dark), var(--reader-foreground-dark), var(--subtext1), var(--subtext0), var(--base);
 }

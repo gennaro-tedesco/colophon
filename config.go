@@ -15,12 +15,12 @@ type Config struct {
 }
 
 func configPath() string {
-	base := os.Getenv("XDG_CONFIG_HOME")
+	base := os.Getenv(configHomeEnvironment)
 	if base == "" {
 		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, ".config")
+		base = filepath.Join(home, fallbackConfigDirectory)
 	}
-	return filepath.Join(base, "colophon", "config.json")
+	return filepath.Join(base, applicationDirectory, configurationFilename)
 }
 
 func loadConfig() Config {
@@ -37,12 +37,12 @@ func loadConfig() Config {
 
 func saveConfig(cfg Config) error {
 	p := configPath()
-	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p), defaultDirectoryMode); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(cfg, "", "  ")
+	data, err := json.MarshalIndent(cfg, "", jsonIndent)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0644)
+	return os.WriteFile(p, data, defaultFileMode)
 }

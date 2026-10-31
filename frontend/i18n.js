@@ -408,8 +408,8 @@
   };
 
   i18next.init({
-    lng: localStorage.getItem("colophon-lang") || "en",
-    fallbackLng: "en",
+    lng: localStorage.getItem(Settings.languageKey) || Settings.defaultLanguage,
+    fallbackLng: Settings.defaultLanguage,
     resources: resources,
     interpolation: { escapeValue: false },
   });
@@ -419,7 +419,7 @@
   };
 
   window.setLanguage = function (lang) {
-    localStorage.setItem("colophon-lang", lang);
+    localStorage.setItem(Settings.languageKey, lang);
     location.reload();
   };
 })();

@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"colophon/internal/contract"
 	"colophon/model"
 )
 
@@ -102,7 +103,7 @@ func parseBook(root, path string) (model.Book, bool) {
 
 	coverURL := ""
 	if coverPath != "" {
-		coverURL = "/cover/" + filepath.ToSlash(rel) + "?entry=" + coverPath
+		coverURL = contract.Routes["cover"] + filepath.ToSlash(rel) + "?entry=" + coverPath
 	}
 
 	return model.Book{
