@@ -717,7 +717,8 @@ body.sidebar-collapsed .reader-sidebar {
   box-shadow: var(--reader-reader-frame-box-shadow);
 }
 .reader-frame-buffer {
-  visibility: hidden;
+  opacity: 0;
+  pointer-events: none;
 }
 @media (max-width: 920px) {
   :root {

@@ -261,6 +261,7 @@
   --library-prefs-modal-border-radius: 14px;
   --library-prefs-modal-width: min(480px, 90vw);
   --library-prefs-row-gap: 6px;
+  --library-reader-overlay-z-index: 400;
   --library-scan-loading-gap: 12px;
   --library-scan-loading-min-height: min(48vh, 360px);
   --library-scan-loading-padding: 24px;

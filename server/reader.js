@@ -154,6 +154,16 @@
     if (libraryAction) {
       libraryAction.setAttribute("aria-label", rt("tooltipLibrary"));
       libraryAction.dataset.tooltip = rt("tooltipLibrary");
+      libraryAction.addEventListener("click", function () {
+        if (
+          window.parent !== window &&
+          typeof window.parent.closeReader === "function"
+        ) {
+          window.parent.closeReader();
+          return;
+        }
+        window.location.href = "/";
+      });
     }
     if (sidebarToggle) {
       sidebarToggle.setAttribute("aria-label", rt("collapseSidebar"));
@@ -191,6 +201,8 @@
     var prevIndex = -1;
     var nextIndex = -1;
     var pendingChapter = -1;
+    var bufferReady = false;
+    var pendingNavigation = null;
     var SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
     var SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
     var SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
@@ -449,7 +461,8 @@
     function chapterRequest(href) {
       try {
         var url = new URL(href, window.location.href);
-        if (url.pathname !== window.location.pathname) return null;
+        if (decodeURI(url.pathname) !== decodeURI(window.location.pathname))
+          return null;
         var chapter = parseInt(url.searchParams.get("chapter") || "", 10);
         if (!Number.isFinite(chapter)) return null;
         return {
@@ -524,6 +537,8 @@
       frameBack = outgoing;
       if (meta) incoming.setAttribute("title", meta.title);
       setupFrame();
+      incoming.removeAttribute("tabindex");
+      outgoing.setAttribute("tabindex", "-1");
       incoming.classList.remove("reader-frame-buffer");
       outgoing.classList.add("reader-frame-buffer");
       if (focusWasInFrame) incoming.contentWindow.focus();
@@ -532,6 +547,15 @@
 
     function onFrameLoad(event) {
       if (event.currentTarget === frameBack) {
+        if (!bufferReady) {
+          bufferReady = true;
+          if (pendingNavigation) {
+            var navigation = pendingNavigation;
+            pendingNavigation = null;
+            showChapter(navigation.index, navigation.fragment, navigation.push);
+          }
+          return;
+        }
         if (pendingChapter < 0) return;
         if (commitFrame(pendingChapter)) pendingChapter = -1;
         return;
@@ -542,6 +566,10 @@
     function showChapter(index, fragment, push) {
       var meta = chapterMeta[index];
       if (!meta) return;
+      if (!bufferReady) {
+        pendingNavigation = { index: index, fragment: fragment, push: push };
+        return;
+      }
       currentIndex = index;
       pendingChapter = index;
       clearNavHover();
@@ -581,14 +609,22 @@
 
     function bindShellChapterLinks() {
       document.addEventListener("click", function (event) {
-        if (event.defaultPrevented || event.button !== 0) return;
-        if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
-          return;
         var link = event.target.closest("a[href]");
         if (!link || !link.closest("#reader-toc, .reader-nav-zone")) return;
         var target = chapterRequest(link.href);
-        if (!target || !chapterMeta[target.index]) return;
-        event.preventDefault();
+        var wasDefaultPrevented = event.defaultPrevented;
+        var hasChapterMetadata = Boolean(target && chapterMeta[target.index]);
+        var shouldIntercept =
+          !wasDefaultPrevented &&
+          event.button === 0 &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          target &&
+          hasChapterMetadata;
+        if (shouldIntercept) event.preventDefault();
+        if (!shouldIntercept) return;
         showChapter(target.index, target.fragment, true);
       });
     }
@@ -1632,6 +1668,9 @@
     updateSearchUI();
     frame.addEventListener("load", onFrameLoad);
     frameBack.addEventListener("load", onFrameLoad);
+    if (chapterIndexFromURL(frameBack.contentDocument.URL) === currentIndex) {
+      bufferReady = true;
+    }
     initSidebarResize();
     bindReaderShortcuts();
     bindShellChapterLinks();

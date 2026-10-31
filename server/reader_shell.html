@@ -46,7 +46,6 @@
         class="reader-library-action"
         aria-label="Library"
         data-tooltip="library"
-        onclick="window.location.href = '/'"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -514,7 +513,9 @@
           <iframe
             id="reader-frame-buffer"
             class="reader-frame reader-frame-buffer"
+            src="{{.IframeSrc}}"
             title=""
+            tabindex="-1"
           ></iframe>
         </div>
       </div>

@@ -10,6 +10,7 @@
   let isDrilldownSuspended = false;
   let currentDrilldown = null;
   let drilldownBaseFilters = null;
+  let readerOverlayLoading = false;
 
   const navRefs = groupValues(() => new Map());
   const sectionRefs = new Map();
@@ -35,6 +36,8 @@
   const drilldownBody = document.getElementById("drilldown-body");
   const drilldownClose = document.getElementById("drilldown-close");
   const continueReading = document.getElementById("continue-reading");
+  const readerOverlay = document.getElementById("reader-overlay");
+  const readerOverlayFrame = document.getElementById("reader-overlay-frame");
   const viewToFilterBtn = document.getElementById("view-to-filter-btn");
   const statsBtnStatsIcon = Icons.stats;
   const statsBtnViewIcon = Icons.book;
@@ -1015,11 +1018,12 @@
         });
         continueReading.disabled = false;
         continueReading.addEventListener("click", function () {
-          window.location.href =
+          openReaderURL(
             Settings.routes.read +
-            data.path +
-            "?chapter=" +
-            (data.chapter || 0);
+              data.path +
+              "?chapter=" +
+              (data.chapter || 0),
+          );
         });
       }
     } catch (e) {}
@@ -1234,9 +1238,33 @@
     return (path || "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function openReader(book) {
-    window.location.href = `${Settings.routes.read}${encodeBookPath(book.path)}?chapter=0`;
+  function openReaderURL(url) {
+    if (!readerOverlay || !readerOverlayFrame) {
+      window.location.href = url;
+      return;
+    }
+    readerOverlayLoading = true;
+    readerOverlayFrame.src = url;
   }
+
+  function openReader(book) {
+    openReaderURL(
+      `${Settings.routes.read}${encodeBookPath(book.path)}?chapter=0`,
+    );
+  }
+
+  readerOverlayFrame.addEventListener("load", function () {
+    if (!readerOverlayLoading) return;
+    readerOverlayLoading = false;
+    readerOverlay.classList.add("visible");
+    readerOverlayFrame.contentWindow.focus();
+  });
+
+  window.closeReader = function () {
+    readerOverlay.classList.remove("visible");
+    readerOverlayFrame.src = "about:blank";
+    window.focus();
+  };
 
   function renderDrilldownContent(sourceType, value, books) {
     const filteredBooks = sourceType
