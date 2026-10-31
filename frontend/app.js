@@ -1,8 +1,8 @@
 (function () {
   let allBooks = [];
   let allViews = [];
-  let navGroups = { language: [], series: [], tags: [], author: [] };
-  let navCounts = { language: {}, series: {}, tags: {}, author: {} };
+  let navGroups = groupValues(() => []);
+  let navCounts = groupValues(() => ({}));
   let activeFilters = createEmptyFilters();
   let activeViewId = "";
   let currentView = "library";
@@ -10,13 +10,9 @@
   let isDrilldownSuspended = false;
   let currentDrilldown = null;
   let drilldownBaseFilters = null;
+  let readerOverlayLoading = false;
 
-  const navRefs = {
-    language: new Map(),
-    series: new Map(),
-    tags: new Map(),
-    author: new Map(),
-  };
+  const navRefs = groupValues(() => new Map());
   const sectionRefs = new Map();
 
   const nav = document.getElementById("nav");
@@ -40,6 +36,8 @@
   const drilldownBody = document.getElementById("drilldown-body");
   const drilldownClose = document.getElementById("drilldown-close");
   const continueReading = document.getElementById("continue-reading");
+  const readerOverlay = document.getElementById("reader-overlay");
+  const readerOverlayFrame = document.getElementById("reader-overlay-frame");
   const viewToFilterBtn = document.getElementById("view-to-filter-btn");
   const statsBtnStatsIcon = Icons.stats;
   const statsBtnViewIcon = Icons.book;
@@ -62,14 +60,22 @@
     "--red",
     "--maroon",
   ];
-  const SIDEBAR_WIDTH_KEY = "sidebar:width";
-  const SIDEBAR_LAST_KEY = "sidebar:last-width";
-  const SIDEBAR_MIN = 220;
-  const SIDEBAR_MAX = 520;
-  const SIDEBAR_COLLAPSED = 60;
-  const VIEWS_HEIGHT_KEY = "views:height";
-  const VIEWS_HEIGHT_MIN = 5;
-  const VIEWS_HEIGHT_DEFAULT = 288;
+  const SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
+  const SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
+  const SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
+  const SIDEBAR_MAX = parseFloat(settingValue("--sidebar-width-max"));
+  const SIDEBAR_COLLAPSED = parseFloat(
+    settingValue("--sidebar-width-collapsed"),
+  );
+  const SIDEBAR_DEFAULT = parseFloat(settingValue("--sidebar-width-default"));
+  const UI_FONT_SIZE_DEFAULT = parseFloat(
+    settingValue("--ui-font-size-default"),
+  );
+  const VIEWS_HEIGHT_KEY = Settings.viewsHeightKey;
+  const VIEWS_HEIGHT_MIN = parseFloat(settingValue("--views-height-min"));
+  const VIEWS_HEIGHT_DEFAULT = parseFloat(
+    settingValue("--views-height-default"),
+  );
   let currentCfg = {};
   let configReady = false;
   let scanInProgress = false;
@@ -120,19 +126,13 @@
           ? t("sidebar.expand")
           : t("sidebar.collapse"),
       );
-      sidebarToggle.setAttribute(
-        "aria-label",
-        width === SIDEBAR_COLLAPSED
-          ? t("sidebar.expand")
-          : t("sidebar.collapse"),
-      );
     }
   }
 
   function initSidebarResize() {
     const saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || "", 10);
     if (saved > 0) applySidebarWidth(saved);
-    if (!sidebarResizer || window.matchMedia("(max-width: 720px)").matches)
+    if (!sidebarResizer || settingValue("--sidebar-resize-enabled") === "0")
       return;
     if (sidebarToggle) {
       sidebarToggle.addEventListener("click", function (event) {
@@ -146,7 +146,8 @@
           ) || 0;
         if (current === SIDEBAR_COLLAPSED) {
           const restored =
-            parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || "", 10) || 280;
+            parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || "", 10) ||
+            SIDEBAR_DEFAULT;
           applySidebarWidth(restored);
           localStorage.setItem(SIDEBAR_WIDTH_KEY, String(restored));
           return;
@@ -163,7 +164,7 @@
           getComputedStyle(document.documentElement).getPropertyValue(
             "--sidebar-w",
           ),
-        ) || 280;
+        ) || SIDEBAR_DEFAULT;
       const startX = event.clientX;
       document.body.classList.add("resizing-sidebar");
       sidebarResizer.setPointerCapture(event.pointerId);
@@ -202,7 +203,7 @@
   }
 
   function attachViewsResizerDrag(resizerEl) {
-    if (!resizerEl || window.matchMedia("(max-width: 720px)").matches) return;
+    if (!resizerEl || settingValue("--sidebar-resize-enabled") === "0") return;
     resizerEl.addEventListener("pointerdown", function (event) {
       const startHeight =
         parseFloat(
@@ -241,90 +242,8 @@
     });
   }
 
-  function initThemeMixes() {
-    const cs = getComputedStyle(document.documentElement);
-    const el = document.documentElement;
-
-    function get(v) {
-      return cs.getPropertyValue(v).trim();
-    }
-
-    function parse(str) {
-      const s = str.trim();
-      if (s.startsWith("#")) {
-        const hex =
-          s.length === 4 ? s[1] + s[1] + s[2] + s[2] + s[3] + s[3] : s.slice(1);
-        return [
-          parseInt(hex.slice(0, 2), 16),
-          parseInt(hex.slice(2, 4), 16),
-          parseInt(hex.slice(4, 6), 16),
-        ];
-      }
-      const m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-      if (m) return [+m[1], +m[2], +m[3]];
-      return null;
-    }
-
-    function blend(c1, ratio, c2) {
-      if (!c1) return "transparent";
-      if (c2 === null)
-        return "rgba(" + c1[0] + "," + c1[1] + "," + c1[2] + "," + ratio + ")";
-      if (!c2) return "transparent";
-      return (
-        "rgb(" +
-        Math.round(c1[0] * ratio + c2[0] * (1 - ratio)) +
-        "," +
-        Math.round(c1[1] * ratio + c2[1] * (1 - ratio)) +
-        "," +
-        Math.round(c1[2] * ratio + c2[2] * (1 - ratio)) +
-        ")"
-      );
-    }
-
-    const teal = parse(get("--teal"));
-    const base = parse(get("--base"));
-    const mantle = parse(get("--mantle"));
-    const blue = parse(get("--blue"));
-    const lavender = parse(get("--lavender"));
-    const yellow = parse(get("--yellow"));
-    const peach = parse(get("--peach"));
-    const mauve = parse(get("--mauve"));
-    const surface0 = parse(get("--surface0"));
-    const surface1 = parse(get("--surface1"));
-
-    const mixes = [
-      ["--mix-teal-10-mantle", blend(teal, 0.1, mantle)],
-      ["--mix-blue-16-t", blend(blue, 0.16, null)],
-      ["--mix-yellow-14-mantle", blend(yellow, 0.14, mantle)],
-      ["--mix-blue-22-t", blend(blue, 0.22, null)],
-      ["--mix-blue-35-t", blend(blue, 0.35, null)],
-      ["--mix-blue-16-base", blend(blue, 0.16, base)],
-      ["--mix-lavender-16-base", blend(lavender, 0.16, base)],
-      ["--mix-teal-14-base", blend(teal, 0.14, base)],
-      ["--mix-teal-35-t", blend(teal, 0.35, null)],
-      ["--mix-teal-28-t", blend(teal, 0.28, null)],
-      ["--mix-teal-8-base", blend(teal, 0.08, base)],
-      ["--mix-peach-12-t", blend(peach, 0.12, null)],
-      ["--mix-lavender-16-t", blend(lavender, 0.16, null)],
-      ["--mix-teal-14-t", blend(teal, 0.14, null)],
-      ["--mix-mauve-12-surface0", blend(mauve, 0.12, surface0)],
-      ["--mix-blue-12-surface0", blend(blue, 0.12, surface0)],
-      ["--mix-blue-20-surface0", blend(blue, 0.2, surface0)],
-      ["--mix-blue-30-surface0", blend(blue, 0.3, surface0)],
-      ["--mix-surface1-60-t", blend(surface1, 0.6, null)],
-      ["--mix-blue-12-t", blend(blue, 0.12, null)],
-      ["--mix-mauve-12-t", blend(mauve, 0.12, null)],
-      ["--mix-mauve-14-mantle", blend(mauve, 0.14, mantle)],
-      ["--mix-mauve-16-t", blend(mauve, 0.16, null)],
-    ];
-
-    for (const [k, v] of mixes) {
-      el.style.setProperty(k, v);
-    }
-  }
-
   function loadLibrary() {
-    fetch("/api/library")
+    fetch(Settings.routes.library)
       .then((r) => {
         if (!r.ok) throw new Error(r.status);
         return r.json();
@@ -385,15 +304,15 @@
       '<div class="empty">' +
       (title ? "<div>" + title + "</div>" : "") +
       (detail
-        ? '<div style="margin-top:8px;color:var(--subtext0);font-size:var(--fs-sm)">' +
+        ? '<div style="margin-top:var(--empty-detail-gap);color:var(--subtext0);font-size:var(--fs-sm)">' +
           detail +
           "</div>"
         : "") +
       '<button id="pick-dir" type="button" style="' +
-      (title || detail ? "margin-top:18px;" : "") +
-      "background:var(--surface0);border:1px solid var(--surface1);border-radius:6px;" +
+      (title || detail ? "margin-top:var(--empty-action-gap);" : "") +
+      "background:var(--surface0);border:var(--empty-action-border-width) solid var(--surface1);border-radius:var(--empty-action-radius);" +
       "color:var(--blue);font-family:var(--font-serif);font-size:var(--fs-md);" +
-      'padding:10px 24px;cursor:pointer">' +
+      'padding:var(--empty-action-padding-y) var(--empty-action-padding-x);cursor:pointer">' +
       buttonLabel +
       "</button></div>";
     document.getElementById("pick-dir").addEventListener("click", function () {
@@ -413,8 +332,8 @@
 
   function resetLibraryData() {
     allBooks = [];
-    navGroups = { language: [], series: [], tags: [], author: [] };
-    navCounts = { language: {}, series: {}, tags: {}, author: {} };
+    navGroups = groupValues(() => []);
+    navCounts = groupValues(() => ({}));
   }
 
   function applyLibraryData(books) {
@@ -486,7 +405,7 @@
       scanVisible = true;
       scanVisibleAt = Date.now();
       updateScanUI();
-    }, 400);
+    }, Settings.scanShowDelay);
     updateScanUI();
   }
 
@@ -525,7 +444,8 @@
     scanTimer = null;
     clearTimeout(scanHideTimer);
     if (scanVisible && scanVisibleAt > 0) {
-      const remaining = 500 - (Date.now() - scanVisibleAt);
+      const remaining =
+        Settings.scanMinimumDuration - (Date.now() - scanVisibleAt);
       if (remaining > 0) {
         scanHideTimer = setTimeout(finalizeScanUI, remaining);
         return;
@@ -535,7 +455,7 @@
   }
 
   if (window.runtime && typeof window.runtime.EventsOn === "function") {
-    window.runtime.EventsOn("book:add", function (book) {
+    window.runtime.EventsOn(Settings.events.bookAdded, function (book) {
       const hadBooks = allBooks.length > 0;
       const idx = allBooks.findIndex(function (b) {
         return b.path === book.path;
@@ -557,10 +477,10 @@
         navCounts = data.counts;
         renderNav();
         renderFiltered();
-      }, 80);
+      }, Settings.bookRenderDelay);
     });
 
-    window.runtime.EventsOn("scan:done", function (lib) {
+    window.runtime.EventsOn(Settings.events.scanDone, function (lib) {
       clearTimeout(bookAddTimer);
       bookAddTimer = null;
       startupScanPending = false;
@@ -596,7 +516,6 @@
   loadViews();
   initSidebarResize();
   initViewsResize();
-  initThemeMixes();
 
   // ── Preferences ──
   const prefsBackdrop = document.getElementById("prefs-backdrop");
@@ -605,6 +524,7 @@
   const prefsPickDir = document.getElementById("prefs-pick-dir");
   const prefsFontFamily = document.getElementById("prefs-font-family");
   const prefsFontSize = document.getElementById("prefs-font-size");
+  configureRange(prefsFontSize, Settings.uiFontRange);
   const prefsFontSizeVal = document.getElementById("prefs-font-size-val");
   const prefsSave = document.getElementById("prefs-save");
   const helpBackdrop = document.getElementById("help-backdrop");
@@ -615,27 +535,14 @@
   function applyUIConfig(cfg) {
     const root = document.documentElement;
     if (cfg.uiFontSize && cfg.uiFontSize > 0) {
-      const base = cfg.uiFontSize;
-      root.style.setProperty("--fs-xs", Math.round(base * 0.75) + "px");
-      root.style.setProperty("--fs-sm", Math.round(base * 0.9) + "px");
-      root.style.setProperty("--fs-base", base + "px");
-      root.style.setProperty("--fs-md", Math.round(base * 1.15) + "px");
-      root.style.setProperty("--fs-lg", Math.round(base * 1.65) + "px");
+      applyFontScale(cfg.uiFontSize);
     }
     if (cfg.uiFontFamily) {
-      root.style.setProperty(
-        "--font-sans",
-        "'" + cfg.uiFontFamily + "', system-ui, sans-serif",
-      );
-      root.style.setProperty(
-        "--font-serif",
-        "'" + cfg.uiFontFamily + "', sans-serif",
-      );
+      applyFontFamily(cfg.uiFontFamily);
     }
-    if (cfg.theme) {
-      root.setAttribute("data-theme", cfg.theme);
+    if ("theme" in cfg || !root.hasAttribute("data-theme")) {
+      root.setAttribute("data-theme", cfg.theme || Settings.defaultTheme);
     }
-    initThemeMixes();
     if (searchScopeEl) syncScopeWrapWidth();
   }
 
@@ -652,8 +559,9 @@
     prefsBackdrop.classList.remove("hidden");
     window.go.main.App.GetConfig().then(function (cfg) {
       prefsLibraryDir.value = cfg.libraryDir || "";
-      prefsFontSize.value = cfg.uiFontSize || 20;
-      prefsFontSizeVal.textContent = (cfg.uiFontSize || 20) + "px";
+      prefsFontSize.value = cfg.uiFontSize || UI_FONT_SIZE_DEFAULT;
+      prefsFontSizeVal.textContent =
+        (cfg.uiFontSize || UI_FONT_SIZE_DEFAULT) + "px";
       prefsFontFamily.value = cfg.uiFontFamily || "";
     });
     window.go.main.App.ListFonts().then(function (fonts) {
@@ -762,6 +670,7 @@
   const appFontFamilyWrap = document.getElementById("app-font-family-wrap");
   const appFontFamilyMenu = document.getElementById("app-font-family-menu");
   const appFontSlider = document.getElementById("app-font-slider");
+  configureRange(appFontSlider, Settings.uiFontRange);
   const appFontVal = document.getElementById("app-font-val");
 
   function showAppMenu() {
@@ -775,7 +684,7 @@
     appMenuHideTimer = setTimeout(function () {
       appMenuToggle.classList.remove("open");
       appMenuPanel.classList.remove("open");
-    }, 300);
+    }, Settings.menuHideDelay);
   }
 
   appMenuToggle.addEventListener("mouseenter", showAppMenu);
@@ -790,26 +699,19 @@
     appFontFamily.dataset.value = value || "";
   }
 
-  var APP_THEMES = [
-    { value: "solarized-dark", label: "Solarized Dark" },
-    { value: "solarized-light", label: "Solarized Light" },
-    { value: "catppuccin-mocha", label: "Catppuccin Mocha" },
-    { value: "catppuccin-latte", label: "Catppuccin Latte" },
-    { value: "nord", label: "Nord" },
-    { value: "everforest", label: "Everforest" },
-    { value: "tokyonight", label: "Tokyo Night" },
-    { value: "kanagawa", label: "Kanagawa" },
-    { value: "rose-pine", label: "Rose Pine" },
-    { value: "ayu-mirage", label: "Ayu Mirage" },
-    { value: "iceberg-light", label: "Iceberg Light" },
-  ];
+  var APP_THEMES = Settings.themes;
 
   function updateAppThemeButton(value) {
     var item = APP_THEMES.find(function (t) {
-      return t.value === (value || "solarized-dark");
+      return t.value === (value || Settings.defaultTheme);
     });
-    appTheme.textContent = item ? item.label : "Solarized Dark";
-    appTheme.dataset.value = value || "solarized-dark";
+    appTheme.textContent = (
+      item ||
+      APP_THEMES.find(function (theme) {
+        return theme.value === Settings.defaultTheme;
+      })
+    ).label;
+    appTheme.dataset.value = value || Settings.defaultTheme;
   }
 
   function updateAppFontFamilyChoices(value) {
@@ -826,7 +728,7 @@
     Array.from(
       appThemeMenu.querySelectorAll(".app-font-family-choice"),
     ).forEach(function (choice) {
-      const active = choice.dataset.value === (value || "solarized-dark");
+      const active = choice.dataset.value === (value || Settings.defaultTheme);
       choice.classList.toggle("is-active", active);
       choice.setAttribute("aria-selected", active ? "true" : "false");
     });
@@ -901,7 +803,7 @@
   }
 
   function renderAppThemeChoices(selected) {
-    var normalizedSelected = selected || "solarized-dark";
+    var normalizedSelected = selected || Settings.defaultTheme;
     appThemeMenu.innerHTML = "";
     APP_THEMES.forEach(function (item) {
       const choice = document.createElement("button");
@@ -1065,10 +967,10 @@
     if (appVersionValue) {
       appVersionValue.textContent = cfg.version || "dev";
     }
-    const size = cfg.uiFontSize || 20;
+    const size = cfg.uiFontSize || UI_FONT_SIZE_DEFAULT;
     appFontSlider.value = size;
     appFontVal.textContent = size + "px";
-    renderAppThemeChoices(cfg.theme || "solarized-dark");
+    renderAppThemeChoices(cfg.theme || Settings.defaultTheme);
     window.go.main.App.ListFonts().then(function (fonts) {
       renderAppFontFamilyChoices(fonts, cfg.uiFontFamily || "");
     });
@@ -1109,15 +1011,19 @@
   (function initContinueReading() {
     continueReading.disabled = true;
     try {
-      var data = JSON.parse(localStorage.getItem("lastRead"));
+      var data = JSON.parse(localStorage.getItem(Settings.lastReadKey));
       if (data && data.path) {
         continueReading.title = t("books.continueReading", {
           title: data.title || "",
         });
         continueReading.disabled = false;
         continueReading.addEventListener("click", function () {
-          window.location.href =
-            "/read/" + data.path + "?chapter=" + (data.chapter || 0);
+          openReaderURL(
+            Settings.routes.read +
+              data.path +
+              "?chapter=" +
+              (data.chapter || 0),
+          );
         });
       }
     } catch (e) {}
@@ -1186,31 +1092,16 @@
   });
 
   function createEmptyFilters() {
-    return {
-      language: new Set(),
-      series: new Set(),
-      tags: new Set(),
-      author: new Set(),
-    };
+    return groupValues(() => new Set());
   }
 
   function cloneFilters(filters) {
-    return {
-      language: new Set(filters.language),
-      series: new Set(filters.series),
-      tags: new Set(filters.tags),
-      author: new Set(filters.author),
-    };
+    return groupValues((key) => new Set(filters[key]));
   }
 
   function buildGroupData(books) {
-    const groups = {
-      language: new Set(),
-      series: new Set(),
-      tags: new Set(),
-      author: new Set(),
-    };
-    const counts = { language: {}, series: {}, tags: {}, author: {} };
+    const groups = groupValues(() => new Set());
+    const counts = groupValues(() => ({}));
 
     books.forEach((book) => {
       if (book.language) {
@@ -1235,12 +1126,7 @@
     const sortFn = (a, b) =>
       a.localeCompare(b, undefined, { sensitivity: "base" });
     return {
-      groups: {
-        language: Array.from(groups.language).sort(sortFn),
-        series: Array.from(groups.series).sort(sortFn),
-        tags: Array.from(groups.tags).sort(sortFn),
-        author: Array.from(groups.author).sort(sortFn),
-      },
+      groups: groupValues((key) => Array.from(groups[key]).sort(sortFn)),
       counts,
     };
   }
@@ -1314,7 +1200,10 @@
       currentView === "stats" && !statsReturnsToView,
     );
     statsBtn.dataset.tooltip = statsReturnsToView ? "view" : "stats";
-    statsBtn.setAttribute("aria-label", statsReturnsToView ? "View" : "Stats");
+    statsBtn.setAttribute(
+      "aria-label",
+      t(statsReturnsToView ? "tooltip.views" : "tooltip.stats"),
+    );
     statsBtn.innerHTML = statsReturnsToView
       ? statsBtnViewIcon
       : statsBtnStatsIcon;
@@ -1349,9 +1238,33 @@
     return (path || "").split("/").map(encodeURIComponent).join("/");
   }
 
-  function openReader(book) {
-    window.location.href = `/read/${encodeBookPath(book.path)}?chapter=0`;
+  function openReaderURL(url) {
+    if (!readerOverlay || !readerOverlayFrame) {
+      window.location.href = url;
+      return;
+    }
+    readerOverlayLoading = true;
+    readerOverlayFrame.src = url;
   }
+
+  function openReader(book) {
+    openReaderURL(
+      `${Settings.routes.read}${encodeBookPath(book.path)}?chapter=0`,
+    );
+  }
+
+  readerOverlayFrame.addEventListener("load", function () {
+    if (!readerOverlayLoading) return;
+    readerOverlayLoading = false;
+    readerOverlay.classList.add("visible");
+    readerOverlayFrame.contentWindow.focus();
+  });
+
+  window.closeReader = function () {
+    readerOverlay.classList.remove("visible");
+    readerOverlayFrame.src = "about:blank";
+    window.focus();
+  };
 
   function renderDrilldownContent(sourceType, value, books) {
     const filteredBooks = sourceType
@@ -1478,7 +1391,7 @@
     nav.appendChild(allEl);
     sectionRefs.set("all", allEl);
 
-    ["author", "language", "series", "tags"].forEach((key) => {
+    Settings.navigationGroups.forEach((key) => {
       const values = navGroups[key];
       if (!values || values.length === 0) return;
 
@@ -1492,7 +1405,10 @@
       header.addEventListener("click", () => section.classList.toggle("open"));
 
       section.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(() => section.classList.add("hover-open"), 300);
+        hoverTimer = setTimeout(
+          () => section.classList.add("hover-open"),
+          Settings.navigationGroupOpenDelay,
+        );
       });
 
       section.addEventListener("mouseleave", () => {
@@ -1537,7 +1453,7 @@
       allEl.classList.toggle("active", !hasActiveFilters());
     }
 
-    ["author", "language", "series", "tags"].forEach((type) => {
+    Settings.navigationGroups.forEach((type) => {
       const section = sectionRefs.get(type);
       if (section) {
         if (hasActiveFilterGroup(type)) {
@@ -1559,7 +1475,7 @@
     activeFiltersEl.innerHTML = "";
     const frag = document.createDocumentFragment();
 
-    ["language", "series", "tags", "author"].forEach((type) => {
+    Settings.groups.forEach((type) => {
       activeFilters[type].forEach((value) => {
         frag.appendChild(activeFilterChip(type, value));
       });
@@ -1994,17 +1910,17 @@
             data: distribution.values,
             backgroundColor,
             borderColor: styles.getPropertyValue("--mantle").trim(),
-            borderWidth: 2,
-            hoverOffset: 10,
+            borderWidth: Settings.chartBorderWidth,
+            hoverOffset: Settings.chartHoverOffset,
           },
         ],
       },
       options: {
         responsive: true,
         maintainAspectRatio: false,
-        cutout: "62%",
+        cutout: Settings.chartCutout,
         animation: {
-          duration: 220,
+          duration: Settings.chartAnimationDuration,
         },
         plugins: {
           legend: {
@@ -2266,7 +2182,7 @@
 
     document.body.appendChild(dropdown);
     const rect = anchorEl.getBoundingClientRect();
-    dropdown.style.top = rect.bottom + 4 + "px";
+    dropdown.style.top = rect.bottom + Settings.dropdownGap + "px";
     dropdown.style.left = rect.left + "px";
     viewPickerAnchorEl = anchorEl;
     viewPickerCloseHandler = function (event) {
@@ -2295,7 +2211,9 @@
     menu.id = "view-add-scope-menu";
     menu.className = "app-font-family-menu";
     menu.style.cssText =
-      "position:fixed;opacity:1;pointer-events:auto;z-index:9999;";
+      "position:fixed;opacity:1;pointer-events:auto;z-index:" +
+      Settings.floatingMenuLayer +
+      ";";
     menu.setAttribute("role", "listbox");
     menu.setAttribute("aria-label", "Search scope");
     searchScopes().forEach(function (item) {
@@ -2320,7 +2238,7 @@
     });
     document.body.appendChild(menu);
     const rect = anchorEl.getBoundingClientRect();
-    menu.style.top = rect.bottom + 4 + "px";
+    menu.style.top = rect.bottom + Settings.dropdownGap + "px";
     menu.style.left = Math.max(0, rect.right - menu.offsetWidth) + "px";
     viewAddScopeMenuEl = menu;
     viewAddScopeCloseHandler = function (event) {

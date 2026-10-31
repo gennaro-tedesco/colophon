@@ -6,13 +6,15 @@ package main
 #import <CoreText/CoreText.h>
 #include <stdlib.h>
 
+enum { fontFamilyBufferCapacity = 512 };
+
 static char** fontFamilyList(int *count) {
 	CFArrayRef families = CTFontManagerCopyAvailableFontFamilyNames();
 	int n = (int)CFArrayGetCount(families);
 	char **items = calloc((size_t)n, sizeof(char*));
 	for (int i = 0; i < n; i++) {
 		CFStringRef name = CFArrayGetValueAtIndex(families, i);
-		char buf[512];
+		char buf[fontFamilyBufferCapacity];
 		if (CFStringGetCString(name, buf, sizeof(buf), kCFStringEncodingUTF8)) {
 			items[i] = strdup(buf);
 		}
@@ -43,6 +45,7 @@ import (
 
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 
+	"colophon/internal/contract"
 	"colophon/model"
 	"colophon/scanner"
 	"colophon/server"
@@ -80,7 +83,7 @@ func (a *App) startup(ctx context.Context) {
 	if root != "" {
 		go a.streamScan(root)
 	} else {
-		runtime.EventsEmit(a.ctx, "scan:done", model.Library{Books: []model.Book{}})
+		runtime.EventsEmit(a.ctx, contract.Events["scanDone"], model.Library{Books: []model.Book{}})
 	}
 }
 
@@ -116,7 +119,7 @@ func (a *App) streamScan(dir string) {
 	for _, entry := range cache {
 		cached = append(cached, entry.Book)
 		booksByPath[entry.Book.Path] = entry.Book
-		runtime.EventsEmit(a.ctx, "book:add", entry.Book)
+		runtime.EventsEmit(a.ctx, contract.Events["bookAdded"], entry.Book)
 	}
 	if len(cached) > 0 {
 		sort.Slice(cached, func(i, j int) bool { return cached[i].Title < cached[j].Title })
@@ -129,12 +132,12 @@ func (a *App) streamScan(dir string) {
 	}
 
 	// Phase 2 — parse new/changed files
-	results := make(chan scanner.ScanResult, 32)
+	results := make(chan scanner.ScanResult, streamScanBufferSize)
 	if err := scanner.Stream(dir, results); err != nil {
 		a.mu.RLock()
 		lib := a.lib
 		a.mu.RUnlock()
-		runtime.EventsEmit(a.ctx, "scan:done", lib)
+		runtime.EventsEmit(a.ctx, contract.Events["scanDone"], lib)
 		return
 	}
 	for r := range results {
@@ -144,7 +147,7 @@ func (a *App) streamScan(dir string) {
 		if inCache && old.ModTime.Equal(r.ModTime) {
 			continue // already emitted
 		}
-		runtime.EventsEmit(a.ctx, "book:add", r.Book)
+		runtime.EventsEmit(a.ctx, contract.Events["bookAdded"], r.Book)
 	}
 
 	// Phase 3 — finalize
@@ -161,13 +164,13 @@ func (a *App) streamScan(dir string) {
 	a.mu.Unlock()
 
 	saveBookCache(dir, newCache)
-	runtime.EventsEmit(a.ctx, "scan:done", finalLib)
+	runtime.EventsEmit(a.ctx, contract.Events["scanDone"], finalLib)
 }
 
 // scan is the synchronous path used by PickAndScan and SaveConfig.
 func (a *App) scan(dir string) error {
 	fonts := a.getFonts()
-	results := make(chan scanner.ScanResult, 64)
+	results := make(chan scanner.ScanResult, synchronousScanBufferSize)
 	if err := scanner.Stream(dir, results); err != nil {
 		return err
 	}
@@ -379,7 +382,13 @@ func listSystemFonts() []string {
 
 func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	switch r.URL.Path {
-	case "/api/config":
+	case contract.ScriptPath:
+		contract.ServeScript(w, r)
+		return
+	case contract.ResourcesPath:
+		contract.ServeResources(w, r)
+		return
+	case contract.Routes["config"]:
 		a.mu.RLock()
 		cfg := a.cfg
 		a.mu.RUnlock()
@@ -388,7 +397,7 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 			return
 		}
 		return
-	case "/api/library":
+	case contract.Routes["library"]:
 		a.mu.RLock()
 		lib := a.lib
 		a.mu.RUnlock()

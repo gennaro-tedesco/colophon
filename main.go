@@ -38,15 +38,15 @@ func main() {
 	}
 
 	appMenu := menu.NewMenu()
-	mb := appMenu.AddSubmenu("colophon")
-	mb.AddText("Quit colophon", keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
+	mb := appMenu.AddSubmenu(applicationTitle)
+	mb.AddText("Quit "+applicationTitle, keys.CmdOrCtrl("q"), func(_ *menu.CallbackData) {
 		runtime.Quit(app.ctx)
 	})
 
 	if err := wails.Run(&options.App{
-		Title:  "colophon",
-		Width:  1280,
-		Height: 860,
+		Title:  applicationTitle,
+		Width:  initialWindowWidth,
+		Height: initialWindowHeight,
 		Menu:   appMenu,
 		AssetServer: &assetserver.Options{
 			Assets:  frontendAssets,

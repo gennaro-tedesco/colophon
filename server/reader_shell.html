@@ -1,28 +1,14 @@
 <!doctype html>
-<html lang="en">
+<html lang="en" data-theme="{{.Theme}}">
   <head>
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>{{.Title}}</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=Lexend:wght@300;400;500&family=JetBrains+Mono:wght@400;500&family=DM+Sans:wght@300;400;500&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="/theme.css" />
-    <link rel="stylesheet" href="/themes/solarized-dark.css" />
-    <link rel="stylesheet" href="/themes/solarized-light.css" />
-    <link rel="stylesheet" href="/themes/catppuccin-mocha.css" />
-    <link rel="stylesheet" href="/themes/catppuccin-latte.css" />
-    <link rel="stylesheet" href="/themes/nord.css" />
-    <link rel="stylesheet" href="/themes/everforest.css" />
-    <link rel="stylesheet" href="/themes/tokyonight.css" />
-    <link rel="stylesheet" href="/themes/kanagawa.css" />
-    <link rel="stylesheet" href="/themes/rose-pine.css" />
-    <link rel="stylesheet" href="/themes/ayu-mirage.css" />
-    <link rel="stylesheet" href="/themes/iceberg-light.css" />
-    <link rel="stylesheet" href="/reader-assets/reader.css" />
+    <script src="{{.ContractScript}}"></script>
+    <script src="/settings.js"></script>
+    <link rel="stylesheet" href="{{.ThemeCSS}}" />
+    <link rel="stylesheet" href="{{.ThemeFile}}" />
+    <link rel="stylesheet" href="{{.ReaderCSS}}" />
   </head>
 
   <body
@@ -60,7 +46,6 @@
         class="reader-library-action"
         aria-label="Library"
         data-tooltip="library"
-        onclick="window.location.href = '/'"
       >
         <svg
           xmlns="http://www.w3.org/2000/svg"
@@ -190,7 +175,7 @@
                   <span
                     id="reader-bg-current"
                     class="reader-current-swatch"
-                    style="background: #073541"
+                    style="background: var(--base)"
                   ></span>
                   <div class="reader-bubble-menu" aria-label="Background color">
                     <button
@@ -253,7 +238,7 @@
                   <span
                     id="reader-fg-current"
                     class="reader-current-swatch"
-                    style="background: #fdf6e2"
+                    style="background: var(--text)"
                   ></span>
                   <div class="reader-bubble-menu" aria-label="Text color">
                     <button
@@ -314,7 +299,7 @@
                 ></span>
                 <div class="reader-control-bubble">
                   <span id="reader-lh-current" class="reader-current-line"
-                    >1.6</span
+                    ></span
                   >
                   <div class="reader-bubble-menu" aria-label="Line height">
                     <input
@@ -322,10 +307,6 @@
                       orient="vertical"
                       id="reader-lh-slider"
                       class="reader-slider"
-                      min="1.2"
-                      max="2.4"
-                      step="0.1"
-                      value="1.6"
                     />
                   </div>
                 </div>
@@ -352,7 +333,7 @@
                 ></span>
                 <div class="reader-control-bubble">
                   <span id="reader-size-current" class="reader-current-size"
-                    >16</span
+                    ></span
                   >
                   <div class="reader-bubble-menu" aria-label="Font size">
                     <input
@@ -360,10 +341,6 @@
                       orient="vertical"
                       id="reader-size-slider"
                       class="reader-slider"
-                      min="20"
-                      max="48"
-                      step="1"
-                      value="24"
                     />
                   </div>
                 </div>
@@ -388,7 +365,7 @@
                 ></span>
                 <div class="reader-control-bubble">
                   <span id="reader-pad-current" class="reader-current-size"
-                    >72</span
+                    ></span
                   >
                   <div class="reader-bubble-menu" aria-label="Page padding">
                     <input
@@ -396,46 +373,7 @@
                       orient="vertical"
                       id="reader-pad-slider"
                       class="reader-slider"
-                      min="32"
-                      max="160"
-                      step="4"
-                      value="72"
                     />
-                  </div>
-                </div>
-              </div>
-              <div class="reader-control-group" aria-label="Font family">
-                <span class="reader-control-symbol"
-                  ><svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    width="18"
-                    height="18"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    stroke-width="2"
-                    stroke-linecap="round"
-                    stroke-linejoin="round"
-                  >
-                    <polyline points="4 7 4 4 20 4 20 7" />
-                    <line x1="9" x2="15" y1="20" y2="20" />
-                    <line x1="12" x2="12" y1="4" y2="20" /></svg
-                ></span>
-                <div class="reader-control-bubble">
-                  <span id="reader-font-current" class="reader-current-line"
-                    >Default</span
-                  >
-                  <div
-                    class="reader-bubble-menu reader-font-menu"
-                    aria-label="Font family"
-                  >
-                    <button
-                      type="button"
-                      class="reader-font-choice reader-choice-active"
-                      data-font=""
-                    >
-                      Default
-                    </button>
                   </div>
                 </div>
               </div>
@@ -546,38 +484,43 @@
           </div>
         </div>
         <div class="reader-frame-stage">
-          {{if .Prev}}
-          <div class="reader-nav-zone prev">
+          <div class="reader-nav-zone prev"{{if not .Prev}} hidden{{end}}>
             <a
               id="reader-prev-chapter"
               class="reader-bottom-nav"
-              href="{{.Prev}}"
+              href="{{if .Prev}}{{.Prev}}{{else}}#{{end}}"
               aria-label="Previous chapter"
             >
               ❮
             </a>
           </div>
-          {{end}} {{if .Next}}
-          <div class="reader-nav-zone next">
+          <div class="reader-nav-zone next"{{if not .Next}} hidden{{end}}>
             <a
               id="reader-next-chapter"
               class="reader-bottom-nav"
-              href="{{.Next}}"
+              href="{{if .Next}}{{.Next}}{{else}}#{{end}}"
               aria-label="Next chapter"
             >
               ❯
             </a>
           </div>
-          {{end}}
           <iframe
             id="reader-frame"
             class="reader-frame"
             src="{{.IframeSrc}}"
             title="{{.CurrentChapter}}"
           ></iframe>
+          <iframe
+            id="reader-frame-buffer"
+            class="reader-frame reader-frame-buffer"
+            src="{{.IframeSrc}}"
+            title=""
+            tabindex="-1"
+          ></iframe>
         </div>
       </div>
     </main>
-    <script src="/reader-assets/reader.js"></script>
+    <script type="application/json" id="reader-chapters">{{.Chapters}}</script>
+    <script src="{{.ReaderJS}}"></script>
   </body>
 </html>

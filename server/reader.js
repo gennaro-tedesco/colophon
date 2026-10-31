@@ -7,7 +7,6 @@
       searchBook: "Search book",
       switchToBook: "Switch to book search",
       switchToChapter: "Switch to chapter search",
-      defaultFont: "Default",
       tooltipChapter: "chapter",
       tooltipBook: "book",
       tooltipLibrary: "library",
@@ -19,7 +18,6 @@
       searchBook: "Buch durchsuchen",
       switchToBook: "Zur Buchsuche wechseln",
       switchToChapter: "Zur Kapitelsuche wechseln",
-      defaultFont: "Standard",
       tooltipChapter: "Kapitel",
       tooltipBook: "Buch",
       tooltipLibrary: "Bibliothek",
@@ -31,7 +29,6 @@
       searchBook: "Cerca nel libro",
       switchToBook: "Passa alla ricerca nel libro",
       switchToChapter: "Passa alla ricerca nel capitolo",
-      defaultFont: "Predefinito",
       tooltipChapter: "capitolo",
       tooltipBook: "libro",
       tooltipLibrary: "libreria",
@@ -43,7 +40,6 @@
       searchBook: "\u641c\u7d22\u4e66\u7c4d",
       switchToBook: "\u5207\u6362\u5230\u4e66\u7c4d\u641c\u7d22",
       switchToChapter: "\u5207\u6362\u5230\u7ae0\u8282\u641c\u7d22",
-      defaultFont: "\u9ed8\u8ba4\u5b57\u4f53",
       tooltipChapter: "\u7ae0\u8282",
       tooltipBook: "\u4e66\u7c4d",
       tooltipLibrary: "\u4e66\u5e93",
@@ -51,82 +47,28 @@
   };
   var readerLang =
     (typeof localStorage !== "undefined" &&
-      localStorage.getItem("colophon-lang")) ||
-    "en";
+      localStorage.getItem(Settings.languageKey)) ||
+    Settings.defaultLanguage;
   var rt = function (key) {
-    var dict = READER_I18N[readerLang] || READER_I18N.en;
-    return dict[key] || READER_I18N.en[key] || key;
+    var dict = READER_I18N[readerLang] || READER_I18N[Settings.defaultLanguage];
+    return dict[key] || READER_I18N[Settings.defaultLanguage][key] || key;
   };
 
-  function parseColor(str) {
-    var s = str.trim();
-    if (s.charAt(0) === "#") {
-      var hex =
-        s.length === 4 ? s[1] + s[1] + s[2] + s[2] + s[3] + s[3] : s.slice(1);
-      return [
-        parseInt(hex.slice(0, 2), 16),
-        parseInt(hex.slice(2, 4), 16),
-        parseInt(hex.slice(4, 6), 16),
-      ];
-    }
-    var m = s.match(/rgb\((\d+),\s*(\d+),\s*(\d+)\)/);
-    if (m) return [+m[1], +m[2], +m[3]];
-    return null;
-  }
-
-  function blendColors(c1, ratio, c2) {
-    if (!c1) return "transparent";
-    if (c2 === null)
-      return "rgba(" + c1[0] + "," + c1[1] + "," + c1[2] + "," + ratio + ")";
-    if (!c2) return "transparent";
-    return (
-      "rgb(" +
-      Math.round(c1[0] * ratio + c2[0] * (1 - ratio)) +
-      "," +
-      Math.round(c1[1] * ratio + c2[1] * (1 - ratio)) +
-      "," +
-      Math.round(c1[2] * ratio + c2[2] * (1 - ratio)) +
-      ")"
-    );
-  }
-
-  function initReaderThemeMixes() {
-    var cs = getComputedStyle(document.documentElement);
-    var el = document.documentElement;
-    function get(v) {
-      return cs.getPropertyValue(v).trim();
-    }
-    var teal = parseColor(get("--teal"));
-    var base = parseColor(get("--base"));
-    el.style.setProperty("--mix-teal-8-base", blendColors(teal, 0.08, base));
-    el.style.setProperty("--mix-teal-14-base", blendColors(teal, 0.14, base));
-  }
+  var onConfigApplied = null;
 
   function applyConfig(cfg) {
     var root = document.documentElement;
-    if (cfg.theme) root.setAttribute("data-theme", cfg.theme);
-    initReaderThemeMixes();
+    root.setAttribute("data-theme", cfg.theme || Settings.defaultTheme);
     if (cfg.uiFontSize > 0) {
-      var b = cfg.uiFontSize;
-      root.style.setProperty("--fs-xs", Math.round(b * 0.75) + "px");
-      root.style.setProperty("--fs-sm", Math.round(b * 0.9) + "px");
-      root.style.setProperty("--fs-base", b + "px");
-      root.style.setProperty("--fs-md", Math.round(b * 1.15) + "px");
-      root.style.setProperty("--fs-lg", Math.round(b * 1.65) + "px");
+      applyFontScale(cfg.uiFontSize);
     }
     if (cfg.uiFontFamily) {
-      root.style.setProperty(
-        "--font-sans",
-        "'" + cfg.uiFontFamily + "', system-ui, sans-serif",
-      );
-      root.style.setProperty(
-        "--font-serif",
-        "'" + cfg.uiFontFamily + "', sans-serif",
-      );
+      applyFontFamily(cfg.uiFontFamily);
     }
+    if (onConfigApplied) onConfigApplied();
   }
 
-  fetch("/api/config")
+  fetch(Settings.routes.config)
     .then(function (r) {
       return r.json();
     })
@@ -138,14 +80,14 @@
     var chapterCount = Number(body.dataset.readerChapterCount || "0");
     var currentIndex = Number(body.dataset.readerCurrentIndex || "0");
     var encodedPath = body.dataset.readerEncodedPath || "";
-    var readerTheme = body.dataset.readerTheme || "";
+    var readerTheme = body.dataset.readerTheme || Settings.defaultTheme;
     if (readerTheme)
       document.documentElement.setAttribute("data-theme", readerTheme);
-    initReaderThemeMixes();
     var readerTitle = body.dataset.readerTitle || "";
     var frameStage = document.querySelector(".reader-frame-stage");
     var prevChapter = document.getElementById("reader-prev-chapter");
     var frame = document.getElementById("reader-frame");
+    var frameBack = document.getElementById("reader-frame-buffer");
     var nextChapter = document.getElementById("reader-next-chapter");
     var sidebarResizer = document.getElementById("reader-sidebar-resizer");
     var sidebarToggle = document.getElementById("reader-sidebar-toggle");
@@ -159,6 +101,17 @@
       "reader-chapter-progress-fill",
     );
     var bookProgressFill = document.getElementById("reader-book-progress-fill");
+    var chapterHeading = document.querySelector(".reader-toolbar-chapter");
+    var progressBadge = document.querySelector(".reader-progress-badge");
+    var chapterMeta = [];
+    var chapterMetaNode = document.getElementById("reader-chapters");
+    if (chapterMetaNode) {
+      try {
+        chapterMeta = JSON.parse(chapterMetaNode.textContent) || [];
+      } catch (err) {
+        chapterMeta = [];
+      }
+    }
     var toc = document.getElementById("reader-toc");
     var searchForm = document.getElementById("reader-search");
     var searchInput = document.getElementById("reader-search-input");
@@ -179,8 +132,9 @@
     var lhSlider = document.getElementById("reader-lh-slider");
     var sizeSlider = document.getElementById("reader-size-slider");
     var padSlider = document.getElementById("reader-pad-slider");
-    var fontCurrent = document.getElementById("reader-font-current");
-    var fontMenu = document.querySelector(".reader-font-menu");
+    configureRange(lhSlider, Settings.readerLineHeightRange);
+    configureRange(sizeSlider, Settings.readerFontRange);
+    configureRange(padSlider, Settings.readerPaddingRange);
     var bubbles = Array.from(
       document.querySelectorAll(".reader-control-bubble"),
     );
@@ -200,72 +154,38 @@
     if (libraryAction) {
       libraryAction.setAttribute("aria-label", rt("tooltipLibrary"));
       libraryAction.dataset.tooltip = rt("tooltipLibrary");
+      libraryAction.addEventListener("click", function () {
+        if (
+          window.parent !== window &&
+          typeof window.parent.closeReader === "function"
+        ) {
+          window.parent.closeReader();
+          return;
+        }
+        window.location.href = "/";
+      });
     }
     if (sidebarToggle) {
       sidebarToggle.setAttribute("aria-label", rt("collapseSidebar"));
     }
-    var defaultFontBtn = document.querySelector(
-      ".reader-font-choice[data-font='']",
-    );
-    if (defaultFontBtn) defaultFontBtn.textContent = rt("defaultFont");
-    if (fontCurrent) fontCurrent.textContent = rt("defaultFont");
-    var themePalettes = {
-      "solarized-dark": {
-        bg: ["#073541", "#002b36", "#00141a", "#1e1e1e", "#eee8d5", "#fdf6e3"],
-        fg: ["#fdf6e2", "#eee8d5", "#93a1a1", "#839496", "#586e75", "#073642"],
-      },
-      "solarized-light": {
-        bg: ["#fdf6e3", "#eee8d5", "#ffffff", "#f5f0e1", "#002b36", "#073642"],
-        fg: ["#073642", "#002b36", "#586e75", "#657b83", "#839496", "#fdf6e3"],
-      },
-      "catppuccin-mocha": {
-        bg: ["#1e1e2e", "#181825", "#11111b", "#313244", "#45475a", "#cdd6f4"],
-        fg: ["#cdd6f4", "#bac2de", "#a6adc8", "#9399b2", "#7f849c", "#1e1e2e"],
-      },
-      "catppuccin-latte": {
-        bg: ["#eff1f5", "#e6e9ef", "#dce0e8", "#ccd0da", "#bcc0cc", "#4c4f69"],
-        fg: ["#4c4f69", "#5c5f77", "#6c6f85", "#7c7f93", "#8c8fa1", "#eff1f5"],
-      },
-      nord: {
-        bg: ["#2e3440", "#3b4252", "#434c5e", "#4c566a", "#d8dee9", "#eceff4"],
-        fg: ["#eceff4", "#e5e9f0", "#d8dee9", "#81a1c1", "#88c0d0", "#2e3440"],
-      },
-      everforest: {
-        bg: ["#2e383c", "#272e33", "#1e2326", "#374145", "#414b50", "#d3c6aa"],
-        fg: ["#d3c6aa", "#9da9a0", "#859289", "#7a8478", "#a7c080", "#2e383c"],
-      },
-      tokyonight: {
-        bg: ["#222436", "#1e2030", "#1b1d2b", "#2f334d", "#3b4261", "#c8d3f5"],
-        fg: ["#c8d3f5", "#a9b1d6", "#828bb8", "#737aa2", "#636da6", "#222436"],
-      },
-      kanagawa: {
-        bg: ["#1f1f28", "#16161d", "#2a2a37", "#363646", "#54546d", "#dcd7ba"],
-        fg: ["#dcd7ba", "#c8c093", "#938aa9", "#727169", "#9cabca", "#1f1f28"],
-      },
-      "rose-pine": {
-        bg: ["#191724", "#16141f", "#1f1d2e", "#26233a", "#403d52", "#e0def4"],
-        fg: ["#e0def4", "#ebbcba", "#908caa", "#6e6a86", "#c4a7e7", "#191724"],
-      },
-      "ayu-mirage": {
-        bg: ["#1f2430", "#1c212b", "#171b24", "#242936", "#33415e", "#cbccc6"],
-        fg: ["#cbccc6", "#8a9199", "#707a8c", "#5ccfe6", "#ffd173", "#1f2430"],
-      },
-      "iceberg-light": {
-        bg: ["#f6f7fb", "#e8ebf3", "#dcdfe7", "#d6dbe8", "#c6ccdc", "#33374c"],
-        fg: ["#33374c", "#4a4f69", "#6b7089", "#2d539e", "#7759b4", "#f6f7fb"],
-      },
-    };
-    var bg = localStorage.getItem("reader:bg") || "#073541";
-    var fg = localStorage.getItem("reader:fg") || "#fdf6e2";
-    var lh = localStorage.getItem("reader:lh") || "1.6";
-    var size = localStorage.getItem("reader:size") || "24px";
-    var padX = localStorage.getItem("reader:px") || "72px";
-    var fontFamily = localStorage.getItem("reader:font") || "";
+    function readerPalette() {
+      return {
+        bg: settingValue("--reader-backgrounds").split(/\s*,\s*/),
+        fg: settingValue("--reader-foregrounds").split(/\s*,\s*/),
+      };
+    }
+    var bg = readerPreference("bg");
+    var fg = readerPreference("fg");
+    var lh = readerPreference("lh");
+    var size = readerPreference("size");
+    var padX = readerPreference("px");
     var pendingG = false;
     var pendingGTimer = null;
     var searchQuery = "";
     var searchScope =
-      sessionStorage.getItem("reader:search-scope:" + encodedPath) || "chapter";
+      sessionStorage.getItem(
+        readerStorageKey(Settings.readerSearchScopeSuffix) + encodedPath,
+      ) || "chapter";
     var searchMatches = [];
     var bookSearchMatches = [];
     var activeBookSearchIndex = -1;
@@ -276,11 +196,24 @@
     var frameCloseBound = false;
     var frameScrollBound = false;
     var frameSetupDoc = null;
-    var SIDEBAR_WIDTH_KEY = "sidebar:width";
-    var SIDEBAR_LAST_KEY = "sidebar:last-width";
-    var SIDEBAR_MIN = 220;
-    var SIDEBAR_MAX = 520;
-    var SIDEBAR_COLLAPSED = 60;
+    var progressFrame = 0;
+    var themeFrame = 0;
+    var prevIndex = -1;
+    var nextIndex = -1;
+    var pendingChapter = -1;
+    var bufferReady = false;
+    var pendingNavigation = null;
+    var SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
+    var SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
+    var SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
+    var SIDEBAR_MAX = parseFloat(settingValue("--sidebar-width-max"));
+    var SIDEBAR_COLLAPSED = parseFloat(
+      settingValue("--sidebar-width-collapsed"),
+    );
+    var SIDEBAR_DEFAULT = parseFloat(settingValue("--sidebar-width-default"));
+    var NAV_EDGE_MAX = parseFloat(settingValue("--reader-nav-edge-max"));
+    var NAV_EDGE_MIN = parseFloat(settingValue("--reader-nav-edge-min"));
+    var NAV_EDGE_RATIO = parseFloat(settingValue("--reader-nav-edge-ratio"));
 
     function clampSidebarWidth(value) {
       return Math.min(SIDEBAR_MAX, Math.max(SIDEBAR_MIN, value));
@@ -310,7 +243,7 @@
     function initSidebarResize() {
       var saved = parseInt(localStorage.getItem(SIDEBAR_WIDTH_KEY) || "", 10);
       if (saved > 0) applySidebarWidth(saved);
-      if (!sidebarResizer || window.matchMedia("(max-width: 920px)").matches)
+      if (!sidebarResizer || settingValue("--sidebar-resize-enabled") === "0")
         return;
       if (sidebarToggle) {
         sidebarToggle.addEventListener("click", function (event) {
@@ -324,7 +257,8 @@
             ) || 0;
           if (current === SIDEBAR_COLLAPSED) {
             var restored =
-              parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || "", 10) || 280;
+              parseInt(localStorage.getItem(SIDEBAR_LAST_KEY) || "", 10) ||
+              SIDEBAR_DEFAULT;
             applySidebarWidth(restored);
             localStorage.setItem(SIDEBAR_WIDTH_KEY, String(restored));
             return;
@@ -341,7 +275,7 @@
             getComputedStyle(document.documentElement).getPropertyValue(
               "--sidebar-w",
             ),
-          ) || 280;
+          ) || SIDEBAR_DEFAULT;
         var startX = event.clientX;
         document.body.classList.add("resizing-sidebar");
         sidebarResizer.setPointerCapture(event.pointerId);
@@ -378,10 +312,17 @@
       activeLh,
       activeSize,
       activePadX,
-      activeFont,
     ) {
       var doc = frame.contentDocument;
       if (!doc) return;
+      var shellStyles = getComputedStyle(document.documentElement);
+      var fontFamily = shellStyles.getPropertyValue("--font-sans").trim();
+      Settings.readerStaticProperties.forEach(function (name) {
+        doc.documentElement.style.setProperty(
+          name,
+          shellStyles.getPropertyValue(name).trim(),
+        );
+      });
       doc.documentElement.style.setProperty("--reader-bg", activeBg);
       doc.documentElement.style.setProperty("--reader-fg", activeFg);
       doc.documentElement.style.setProperty("--reader-pad-x", activePadX);
@@ -389,7 +330,7 @@
       doc.documentElement.style.color = activeFg;
       doc.documentElement.style.lineHeight = activeLh;
       doc.documentElement.style.fontSize = activeSize;
-      doc.documentElement.style.fontFamily = activeFont || "";
+      doc.documentElement.style.fontFamily = fontFamily;
       if (doc.body) {
         doc.body.style.backgroundColor = activeBg;
         doc.body.style.color = activeFg;
@@ -397,7 +338,7 @@
         doc.body.style.fontSize = activeSize;
         doc.body.style.paddingLeft = activePadX;
         doc.body.style.paddingRight = activePadX;
-        doc.body.style.fontFamily = activeFont || "";
+        doc.body.style.fontFamily = fontFamily;
       }
     }
 
@@ -410,8 +351,16 @@
       });
     }
 
+    function requestApplyTheme() {
+      if (themeFrame) return;
+      themeFrame = requestAnimationFrame(function () {
+        themeFrame = 0;
+        applyTheme();
+      });
+    }
+
     function applyTheme() {
-      applyThemeToFrame(bg, fg, lh, size, padX, fontFamily);
+      applyThemeToFrame(bg, fg, lh, size, padX);
       document.documentElement.style.setProperty("--reader-shell-fg", fg);
       document.documentElement.style.setProperty("--reader-progress-book", fg);
       document.documentElement.style.setProperty(
@@ -423,14 +372,15 @@
       lhCurrent.textContent = lh;
       sizeCurrent.textContent = size.replace("px", "");
       padCurrent.textContent = padX.replace("px", "");
-      fontCurrent.textContent = fontFamily || rt("defaultFont");
+      var palette = getReaderSearchPalette();
+      var radius = settingValue("--reader-search-radius");
       searchMatches.forEach(function (match, idx) {
-        applySearchMarkStyle(match, idx === activeSearchIndex);
+        applySearchMarkStyle(match, idx === activeSearchIndex, palette, radius);
       });
     }
 
     function applySwatchPalette(theme) {
-      var pal = themePalettes[theme] || themePalettes["solarized-dark"];
+      var pal = readerPalette();
       bgChoices.forEach(function (btn, i) {
         btn.dataset.bg = pal.bg[i];
         btn.style.background = pal.bg[i];
@@ -439,12 +389,12 @@
         btn.dataset.fg = pal.fg[i];
         btn.style.background = pal.fg[i];
       });
-      if (localStorage.getItem("reader:theme") !== theme) {
+      if (localStorage.getItem(readerStorageKey("theme")) !== theme) {
         bg = pal.bg[0];
         fg = pal.fg[0];
-        localStorage.setItem("reader:bg", bg);
-        localStorage.setItem("reader:fg", fg);
-        localStorage.setItem("reader:theme", theme);
+        localStorage.setItem(readerStorageKey("bg"), bg);
+        localStorage.setItem(readerStorageKey("fg"), fg);
+        localStorage.setItem(readerStorageKey("theme"), theme);
       }
       bgCurrent.style.backgroundColor = bg;
       fgCurrent.style.backgroundColor = fg;
@@ -491,35 +441,207 @@
       if (scrollingEl) scrollingEl.scrollTop += delta;
     }
 
-    function getChapterIndexFromHref(href) {
-      if (!href) return null;
+    function chapterShellURL(index, fragment) {
+      var url =
+        Settings.routes.read + encodedPath + "?chapter=" + String(index);
+      if (fragment) url += "&frag=" + encodeURIComponent(fragment);
+      return url;
+    }
+
+    function chapterDocURL(index, fragment) {
+      var url =
+        Settings.routes.read +
+        encodedPath +
+        "/chapter?chapter=" +
+        String(index);
+      if (fragment) url += "#" + encodeURIComponent(fragment);
+      return url;
+    }
+
+    function chapterRequest(href) {
       try {
         var url = new URL(href, window.location.href);
+        if (decodeURI(url.pathname) !== decodeURI(window.location.pathname))
+          return null;
         var chapter = parseInt(url.searchParams.get("chapter") || "", 10);
-        return Number.isFinite(chapter) ? chapter : null;
+        if (!Number.isFinite(chapter)) return null;
+        return {
+          index: chapter,
+          fragment: url.searchParams.get("frag") || "",
+        };
       } catch (err) {
         return null;
       }
     }
 
-    function goToChapter(link) {
-      if (!link || !link.href) return;
-      window.location.href = link.href;
+    function goToChapter(index) {
+      showChapter(index, "", true);
     }
 
-    function goToChapterIndex(index) {
-      if (index < 0 || index >= chapterCount) return;
-      window.location.href = "/read/" + encodedPath + "?chapter=" + index;
+    function markActiveTOC(index) {
+      if (!toc) return;
+      toc.querySelectorAll("a[data-toc-chapter]").forEach(function (link) {
+        link.classList.toggle(
+          "active",
+          Number(link.dataset.tocChapter) === index,
+        );
+      });
+      var active = toc.querySelector("a[data-toc-chapter].active");
+      var section = active ? active.closest(".group-section") : null;
+      while (section) {
+        section.classList.add("open");
+        section = section.parentNode
+          ? section.parentNode.closest(".group-section")
+          : null;
+      }
     }
 
-    function bindChapterLinks() {
+    function updateChapterLinks(index) {
+      var meta = chapterMeta[index];
+      if (!meta) return;
+      prevIndex = meta.prev;
+      nextIndex = meta.next;
+      if (prevChapter) {
+        prevChapter.href =
+          prevIndex >= 0 ? chapterShellURL(prevIndex, "") : "#";
+        prevChapter.parentNode.hidden = prevIndex < 0;
+      }
+      if (nextChapter) {
+        nextChapter.href =
+          nextIndex >= 0 ? chapterShellURL(nextIndex, "") : "#";
+        nextChapter.parentNode.hidden = nextIndex < 0;
+      }
+    }
+
+    function chapterIndexFromURL(href) {
+      try {
+        var chapter = parseInt(
+          new URL(href, window.location.href).searchParams.get("chapter") || "",
+          10,
+        );
+        return Number.isFinite(chapter) ? chapter : -1;
+      } catch (err) {
+        return -1;
+      }
+    }
+
+    function commitFrame(index) {
+      var incoming = frameBack;
+      var doc = incoming.contentDocument;
+      if (!doc || chapterIndexFromURL(doc.URL) !== index) return false;
+      var outgoing = frame;
+      var focusWasInFrame =
+        outgoing.contentDocument && outgoing.contentDocument.hasFocus();
+      var meta = chapterMeta[index];
+      frame = incoming;
+      frameBack = outgoing;
+      if (meta) incoming.setAttribute("title", meta.title);
+      setupFrame();
+      incoming.removeAttribute("tabindex");
+      outgoing.setAttribute("tabindex", "-1");
+      incoming.classList.remove("reader-frame-buffer");
+      outgoing.classList.add("reader-frame-buffer");
+      if (focusWasInFrame) incoming.contentWindow.focus();
+      return true;
+    }
+
+    function onFrameLoad(event) {
+      if (event.currentTarget === frameBack) {
+        if (!bufferReady) {
+          bufferReady = true;
+          if (pendingNavigation) {
+            var navigation = pendingNavigation;
+            pendingNavigation = null;
+            showChapter(navigation.index, navigation.fragment, navigation.push);
+          }
+          return;
+        }
+        if (pendingChapter < 0) return;
+        if (commitFrame(pendingChapter)) pendingChapter = -1;
+        return;
+      }
+      setupFrame();
+    }
+
+    function showChapter(index, fragment, push) {
+      var meta = chapterMeta[index];
+      if (!meta) return;
+      if (!bufferReady) {
+        pendingNavigation = { index: index, fragment: fragment, push: push };
+        return;
+      }
+      currentIndex = index;
+      pendingChapter = index;
+      clearNavHover();
+      var src = chapterDocURL(index, fragment);
+      if (
+        frameBack.contentDocument &&
+        frameBack.contentDocument.URL ===
+          new URL(src, window.location.href).href
+      ) {
+        frameBack.contentWindow.location.reload();
+      } else {
+        frameBack.src = src;
+      }
+      if (chapterHeading) chapterHeading.textContent = meta.title;
+      if (progressBadge) {
+        progressBadge.textContent =
+          String(index + 1) + " / " + String(chapterCount);
+      }
+      updateChapterLinks(index);
+      markActiveTOC(index);
+      localStorage.setItem(
+        Settings.lastReadKey,
+        JSON.stringify({
+          path: encodedPath,
+          chapter: index,
+          title: readerTitle,
+        }),
+      );
+      if (push) {
+        history.pushState(
+          { chapter: index, frag: fragment || "" },
+          "",
+          chapterShellURL(index, fragment),
+        );
+      }
+    }
+
+    function bindShellChapterLinks() {
       document.addEventListener("click", function (event) {
+        var link = event.target.closest("a[href]");
+        if (!link || !link.closest("#reader-toc, .reader-nav-zone")) return;
+        var target = chapterRequest(link.href);
+        var wasDefaultPrevented = event.defaultPrevented;
+        var hasChapterMetadata = Boolean(target && chapterMeta[target.index]);
+        var shouldIntercept =
+          !wasDefaultPrevented &&
+          event.button === 0 &&
+          !event.metaKey &&
+          !event.ctrlKey &&
+          !event.shiftKey &&
+          !event.altKey &&
+          target &&
+          hasChapterMetadata;
+        if (shouldIntercept) event.preventDefault();
+        if (!shouldIntercept) return;
+        showChapter(target.index, target.fragment, true);
+      });
+    }
+
+    function bindFrameChapterLinks() {
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      doc.addEventListener("click", function (event) {
         if (event.defaultPrevented || event.button !== 0) return;
         if (event.metaKey || event.ctrlKey || event.shiftKey || event.altKey)
           return;
         var link = event.target.closest("a[href]");
         if (!link) return;
-        if (getChapterIndexFromHref(link.href) === null) return;
+        var target = chapterRequest(link.href);
+        if (!target || !chapterMeta[target.index]) return;
+        event.preventDefault();
+        showChapter(target.index, target.fragment, true);
       });
     }
 
@@ -537,7 +659,7 @@
       pendingGTimer = setTimeout(function () {
         pendingG = false;
         pendingGTimer = null;
-      }, 450);
+      }, Settings.shortcutSequenceDelay);
     }
 
     function toggleSidebar() {
@@ -584,7 +706,7 @@
         event.preventDefault();
         if (pendingG) {
           clearPendingG();
-          goToChapterIndex(0);
+          goToChapter(0);
           return;
         }
         armPendingG();
@@ -593,7 +715,7 @@
       if (event.key === "G") {
         event.preventDefault();
         clearPendingG();
-        goToChapterIndex(chapterCount - 1);
+        goToChapter(chapterCount - 1);
         return;
       }
       clearPendingG();
@@ -611,22 +733,22 @@
         case "ArrowDown":
         case "j":
           event.preventDefault();
-          scrollReaderBy(96);
+          scrollReaderBy(Settings.readerScrollStep);
           break;
         case "ArrowUp":
         case "k":
           event.preventDefault();
-          scrollReaderBy(-96);
+          scrollReaderBy(-Settings.readerScrollStep);
           break;
         case "ArrowRight":
         case "l":
           event.preventDefault();
-          goToChapter(nextChapter);
+          goToChapter(nextIndex);
           break;
         case "ArrowLeft":
         case "h":
           event.preventDefault();
-          goToChapter(prevChapter);
+          goToChapter(prevIndex);
           break;
         case "Tab":
           event.preventDefault();
@@ -644,7 +766,6 @@
       if (!doc) return;
       var win = doc.defaultView;
       if (win) win.addEventListener("keydown", handleReaderShortcut);
-      doc.addEventListener("keydown", handleReaderShortcut);
     }
 
     function updateSearchUI() {
@@ -694,13 +815,18 @@
     }
 
     function persistSearchState() {
-      sessionStorage.setItem("reader:search-scope:" + encodedPath, searchScope);
+      sessionStorage.setItem(
+        readerStorageKey(Settings.readerSearchScopeSuffix) + encodedPath,
+        searchScope,
+      );
       if (!searchQuery) {
-        sessionStorage.removeItem("reader:search-state:" + encodedPath);
+        sessionStorage.removeItem(
+          readerStorageKey(Settings.readerSearchStateSuffix) + encodedPath,
+        );
         return;
       }
       sessionStorage.setItem(
-        "reader:search-state:" + encodedPath,
+        readerStorageKey(Settings.readerSearchStateSuffix) + encodedPath,
         JSON.stringify({
           query: searchQuery,
           scope: searchScope,
@@ -711,7 +837,9 @@
 
     function loadPersistedSearchState() {
       try {
-        var raw = sessionStorage.getItem("reader:search-state:" + encodedPath);
+        var raw = sessionStorage.getItem(
+          readerStorageKey(Settings.readerSearchStateSuffix) + encodedPath,
+        );
         if (!raw) return;
         var parsed = JSON.parse(raw);
         if (!parsed || !parsed.query) return;
@@ -748,9 +876,7 @@
     }
 
     function getReaderSearchPalette() {
-      var pal =
-        themePalettes[localStorage.getItem("reader:theme") || readerTheme] ||
-        themePalettes["solarized-dark"];
+      var pal = readerPalette();
       var pool = [];
       pal.fg.forEach(function (color) {
         if (color === fg) return;
@@ -759,24 +885,18 @@
         pool.push(color);
       });
       return {
-        match: pool[0] || "#ffb703",
-        active: pool[1] || pool[0] || "#fb8500",
+        match: pool[0] || settingValue("--reader-search-mark"),
+        active:
+          pool[1] || pool[0] || settingValue("--reader-search-mark-active"),
       };
     }
 
-    function getSearchMarkStyles(active) {
-      var palette = getReaderSearchPalette();
-      return {
-        backgroundColor: active ? palette.active : palette.match,
-        color: fg,
-      };
-    }
-
-    function applySearchMarkStyle(mark, active) {
-      var styles = getSearchMarkStyles(active);
-      mark.style.backgroundColor = styles.backgroundColor;
-      mark.style.color = styles.color;
-      mark.style.borderRadius = "2px";
+    function applySearchMarkStyle(mark, active, palette, radius) {
+      var colors = palette || getReaderSearchPalette();
+      mark.style.backgroundColor = active ? colors.active : colors.match;
+      mark.style.color = fg;
+      mark.style.borderRadius =
+        radius || settingValue("--reader-search-radius");
     }
 
     function collectSearchTextNodes(doc) {
@@ -806,7 +926,7 @@
       return nodes;
     }
 
-    function highlightTextNode(node, start, end) {
+    function highlightTextNode(node, start, end, palette, radius) {
       var textNode = node;
       if (start > 0) {
         textNode = textNode.splitText(start);
@@ -818,7 +938,7 @@
       mark.className = "reader-search-mark";
       textNode.parentNode.insertBefore(mark, textNode);
       mark.appendChild(textNode);
-      applySearchMarkStyle(mark, false);
+      applySearchMarkStyle(mark, false, palette, radius);
       return mark;
     }
 
@@ -827,6 +947,8 @@
       if (!doc) return [];
       var loweredQuery = query.toLocaleLowerCase();
       var matches = [];
+      var palette = getReaderSearchPalette();
+      var radius = settingValue("--reader-search-radius");
       collectSearchTextNodes(doc).forEach(function (node) {
         var loweredText = node.nodeValue.toLocaleLowerCase();
         var ranges = [];
@@ -840,7 +962,13 @@
         }
         for (var i = ranges.length - 1; i >= 0; i--) {
           nodeMatches.push(
-            highlightTextNode(node, ranges[i].start, ranges[i].end),
+            highlightTextNode(
+              node,
+              ranges[i].start,
+              ranges[i].end,
+              palette,
+              radius,
+            ),
           );
         }
         nodeMatches.reverse();
@@ -858,9 +986,12 @@
       activeSearchIndex =
         ((index % searchMatches.length) + searchMatches.length) %
         searchMatches.length;
+      var palette = getReaderSearchPalette();
+      var radius = settingValue("--reader-search-radius");
       searchMatches.forEach(function (match, idx) {
-        match.classList.toggle("is-active", idx === activeSearchIndex);
-        applySearchMarkStyle(match, idx === activeSearchIndex);
+        var active = idx === activeSearchIndex;
+        match.classList.toggle("is-active", active);
+        applySearchMarkStyle(match, active, palette, radius);
       });
       var activeMatch = searchMatches[activeSearchIndex];
       if (activeMatch && typeof activeMatch.scrollIntoView === "function") {
@@ -886,7 +1017,7 @@
         return;
       }
       if (activeMatch.chapter !== currentIndex) {
-        goToChapterIndex(activeMatch.chapter);
+        goToChapter(activeMatch.chapter);
         return;
       }
       runSearch(searchQuery);
@@ -928,7 +1059,7 @@
         return Promise.resolve();
       }
       return fetch(
-        "/reader-search/" +
+        Settings.routes.search +
           encodedPath +
           "?q=" +
           encodeURIComponent(searchQuery),
@@ -972,7 +1103,7 @@
       clearTimeout(hideTimer);
       hideTimer = setTimeout(function () {
         closeMenu();
-      }, 300);
+      }, Settings.menuHideDelay);
     }
 
     function openMenu() {
@@ -1028,12 +1159,12 @@
       clearTimeout(searchOpenTimer);
       searchOpenTimer = setTimeout(function () {
         openSearch(false);
-      }, 150);
+      }, Settings.searchOpenDelay);
     }
 
     function openBubble(targetBubble) {
       var current = targetBubble.querySelector(
-        ".reader-current-swatch, .reader-current-line, .reader-current-size, #reader-font-current",
+        ".reader-current-swatch, .reader-current-line, .reader-current-size",
       );
       var menu = targetBubble.querySelector(".reader-bubble-menu");
       if (current && menu) {
@@ -1066,7 +1197,7 @@
           });
           choice.classList.add("reader-choice-active");
           setter(choice.dataset[key]);
-          localStorage.setItem("reader:" + key, choice.dataset[key]);
+          localStorage.setItem(readerStorageKey(key), choice.dataset[key]);
           applyTheme();
           scheduleHide();
         });
@@ -1103,12 +1234,20 @@
 
     function updateNavHover(clientX, clientY, width, height) {
       if (!frameStage) return;
-      var inBottomBand = clientY >= height - Math.min(160, height * 0.3);
-      var edgeWidth = Math.min(180, Math.max(72, width * 0.24));
-      var showPrev =
-        inBottomBand && clientX <= edgeWidth && Boolean(prevChapter);
+      var inBottomBand =
+        clientY >=
+        height -
+          Math.min(
+            Settings.readerNavBandMax,
+            height * Settings.readerNavBandRatio,
+          );
+      var edgeWidth = Math.min(
+        NAV_EDGE_MAX,
+        Math.max(NAV_EDGE_MIN, width * NAV_EDGE_RATIO),
+      );
+      var showPrev = inBottomBand && clientX <= edgeWidth && prevIndex >= 0;
       var showNext =
-        inBottomBand && clientX >= width - edgeWidth && Boolean(nextChapter);
+        inBottomBand && clientX >= width - edgeWidth && nextIndex >= 0;
       frameStage.classList.toggle("nav-hover-prev", showPrev);
       frameStage.classList.toggle("nav-hover-next", showNext);
     }
@@ -1175,22 +1314,25 @@
         String(Math.min(Math.max(bookProgress, 0), 100)) + "%";
     }
 
+    function scheduleReaderProgress() {
+      if (progressFrame) return;
+      progressFrame = requestAnimationFrame(function () {
+        progressFrame = 0;
+        updateReaderProgress();
+      });
+    }
+
     function bindFrameScroll() {
       if (frameScrollBound) return;
       var doc = frame.contentDocument;
       if (!doc) return;
       var win = doc.defaultView;
-      var docEl = doc.documentElement;
-      var bodyEl = doc.body;
-      if (!win || !docEl) return;
-      win.addEventListener("scroll", updateReaderProgress, { passive: true });
+      if (!win) return;
+      win.addEventListener("scroll", scheduleReaderProgress, {
+        passive: true,
+        capture: true,
+      });
       win.addEventListener("resize", updateReaderProgress);
-      doc.addEventListener("scroll", updateReaderProgress, { passive: true });
-      docEl.addEventListener("scroll", updateReaderProgress, { passive: true });
-      if (bodyEl)
-        bodyEl.addEventListener("scroll", updateReaderProgress, {
-          passive: true,
-        });
       frameScrollBound = true;
       updateReaderProgress();
     }
@@ -1213,17 +1355,22 @@
       bindFrameNavHover();
       bindFrameScroll();
       bindFrameShortcuts();
+      bindFrameChapterLinks();
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
-          if (searchScope === "book" && searchQuery) {
+          if (!searchQuery) {
+            searchMatches = [];
+            activeSearchIndex = -1;
+            return;
+          }
+          if (searchScope === "book") {
             runBookSearch(searchQuery);
           } else {
             runSearch(searchQuery);
           }
-          updateReaderProgress();
         });
       });
-      setTimeout(updateReaderProgress, 150);
+      setTimeout(updateReaderProgress, Settings.readerProgressDelay);
     }
 
     function bindSlider(
@@ -1239,51 +1386,11 @@
       });
       slider.addEventListener("input", function () {
         updateValue(slider.value);
-        applyTheme();
+        requestApplyTheme();
       });
       slider.addEventListener("change", function () {
         localStorage.setItem(storageKey, getStoredValue());
         scheduleHide();
-      });
-    }
-
-    function bindFontChoices() {
-      var choices = Array.from(
-        fontMenu.querySelectorAll(".reader-font-choice"),
-      );
-      choices.forEach(function (choice) {
-        var saved;
-        var previewing = false;
-        choice.addEventListener("mousedown", function (event) {
-          event.stopPropagation();
-        });
-        choice.addEventListener("pointerdown", function (event) {
-          event.preventDefault();
-          event.stopPropagation();
-          previewing = false;
-          saved = choice.dataset.font;
-          choices.forEach(function (c) {
-            c.classList.remove("reader-choice-active");
-          });
-          choice.classList.add("reader-choice-active");
-          fontFamily = choice.dataset.font;
-          localStorage.setItem("reader:font", fontFamily);
-          applyTheme();
-          closeBubble(fontMenu.closest(".reader-control-bubble"));
-          scheduleHide();
-        });
-        choice.addEventListener("mouseenter", function () {
-          saved = fontFamily;
-          previewing = true;
-          fontFamily = choice.dataset.font;
-          applyTheme();
-        });
-        choice.addEventListener("mouseleave", function () {
-          if (!previewing) return;
-          fontFamily = saved;
-          applyTheme();
-          previewing = false;
-        });
       });
     }
 
@@ -1299,7 +1406,7 @@
       function (value) {
         lh = value;
       },
-      "reader:lh",
+      readerStorageKey("lh"),
       function () {
         return lh;
       },
@@ -1310,7 +1417,7 @@
       function (value) {
         size = value + "px";
       },
-      "reader:size",
+      readerStorageKey("size"),
       function () {
         return size;
       },
@@ -1321,34 +1428,11 @@
       function (value) {
         padX = value + "px";
       },
-      "reader:px",
+      readerStorageKey("px"),
       function () {
         return padX;
       },
     );
-
-    fetch("/api/fonts")
-      .then(function (r) {
-        return r.json();
-      })
-      .then(function (fonts) {
-        fonts.forEach(function (f) {
-          var btn = document.createElement("button");
-          btn.type = "button";
-          btn.className = "reader-font-choice";
-          btn.dataset.font = f;
-          btn.textContent = f;
-          btn.style.fontFamily = "'" + f + "'";
-          fontMenu.appendChild(btn);
-        });
-        fontMenu.querySelectorAll(".reader-font-choice").forEach(function (c) {
-          c.classList.toggle(
-            "reader-choice-active",
-            c.dataset.font === fontFamily,
-          );
-        });
-        bindFontChoices();
-      });
 
     controlGroups.forEach(function (group) {
       var bubble = group.querySelector(".reader-control-bubble");
@@ -1421,7 +1505,7 @@
           searchPanel.classList.remove("open");
           searchTools.classList.remove("open");
           searchToggle.classList.remove("open");
-        }, 300);
+        }, Settings.menuHideDelay);
       });
     }
     if (searchPanel) {
@@ -1436,7 +1520,7 @@
           searchPanel.classList.remove("open");
           searchTools.classList.remove("open");
           searchToggle.classList.remove("open");
-        }, 300);
+        }, Settings.menuHideDelay);
       });
     }
     document.addEventListener("mousedown", function (event) {
@@ -1446,7 +1530,8 @@
     });
 
     if (toc) {
-      var tocKey = "reader:toc:" + window.location.pathname;
+      var tocKey =
+        readerStorageKey(Settings.readerTocSuffix) + window.location.pathname;
       var savedTop = localStorage.getItem(tocKey);
       if (savedTop) toc.scrollTop = Number(savedTop);
       toc.addEventListener("scroll", function () {
@@ -1521,7 +1606,7 @@
       searchScopeToggle.addEventListener("click", function () {
         searchScope = searchScope === "book" ? "chapter" : "book";
         sessionStorage.setItem(
-          "reader:search-scope:" + encodedPath,
+          readerStorageKey(Settings.readerSearchScopeSuffix) + encodedPath,
           searchScope,
         );
         updateSearchScopeUI();
@@ -1581,13 +1666,26 @@
       });
     }
     updateSearchUI();
-    frame.addEventListener("load", setupFrame);
+    frame.addEventListener("load", onFrameLoad);
+    frameBack.addEventListener("load", onFrameLoad);
+    if (chapterIndexFromURL(frameBack.contentDocument.URL) === currentIndex) {
+      bufferReady = true;
+    }
     initSidebarResize();
     bindReaderShortcuts();
-    bindChapterLinks();
-    applyTheme();
+    bindShellChapterLinks();
+    updateChapterLinks(currentIndex);
+    window.addEventListener("popstate", function (event) {
+      var state = event.state;
+      if (state && typeof state.chapter === "number") {
+        showChapter(state.chapter, state.frag || "", false);
+        return;
+      }
+      var target = chapterRequest(window.location.href);
+      if (!target) return;
+      showChapter(target.index, target.fragment, false);
+    });
     setupFrame();
-    updateReaderProgress();
 
     document
       .querySelectorAll(".reader-toc .group-section")
@@ -1603,7 +1701,7 @@
         section.addEventListener("mouseenter", function () {
           hoverTimer = setTimeout(function () {
             section.classList.add("hover-open");
-          }, 500);
+          }, Settings.readerTocHoverDelay);
         });
         section.addEventListener("mouseleave", function () {
           clearTimeout(hoverTimer);
@@ -1612,7 +1710,7 @@
       });
 
     localStorage.setItem(
-      "lastRead",
+      Settings.lastReadKey,
       JSON.stringify({
         path: encodedPath,
         chapter: currentIndex,
@@ -1622,6 +1720,7 @@
     window.openPreferences = function () {
       window.location.href = "/?openPrefs=1";
     };
+    onConfigApplied = applyTheme;
   }
 
   if (document.readyState === "loading") {

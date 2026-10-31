@@ -25,4 +25,7 @@
   --pink: #d27e99;
   --flamingo: #e46876;
   --rosewater: #dcd7ba;
+  --reader-foreground-accent: #9cabca;
+  --reader-backgrounds: var(--mantle), var(--crust), var(--base), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext0), var(--overlay1), var(--overlay0), var(--reader-foreground-accent), var(--mantle);
 }

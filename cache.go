@@ -19,17 +19,17 @@ type cacheEntry struct {
 type bookCache map[string]cacheEntry
 
 func cacheDir() string {
-	base := os.Getenv("XDG_CONFIG_HOME")
+	base := os.Getenv(configHomeEnvironment)
 	if base == "" {
 		home, _ := os.UserHomeDir()
-		base = filepath.Join(home, ".config")
+		base = filepath.Join(home, fallbackConfigDirectory)
 	}
-	return filepath.Join(base, "colophon", "cache")
+	return filepath.Join(base, applicationDirectory, bookCacheDirectory)
 }
 
 func cachePath(root string) string {
 	sum := sha256.Sum256([]byte(root))
-	return filepath.Join(cacheDir(), hex.EncodeToString(sum[:])+".json")
+	return filepath.Join(cacheDir(), hex.EncodeToString(sum[:])+jsonExtension)
 }
 
 func loadBookCache(root string) bookCache {
@@ -52,12 +52,12 @@ func saveBookCache(root string, c bookCache) error {
 		return nil
 	}
 	p := cachePath(root)
-	if err := os.MkdirAll(filepath.Dir(p), 0755); err != nil {
+	if err := os.MkdirAll(filepath.Dir(p), defaultDirectoryMode); err != nil {
 		return err
 	}
-	data, err := json.MarshalIndent(c, "", "  ")
+	data, err := json.MarshalIndent(c, "", jsonIndent)
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, 0644)
+	return os.WriteFile(p, data, defaultFileMode)
 }
