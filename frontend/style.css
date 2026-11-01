@@ -1440,6 +1440,12 @@ input[type="range"].prefs-input {
   word-break: break-all;
 }
 
+.app-about-logo {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
 #app-theme,
 #app-font-family {
   flex: 1;
