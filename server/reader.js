@@ -1690,7 +1690,6 @@
     document
       .querySelectorAll(".reader-toc .group-section")
       .forEach(function (section) {
-        var hoverTimer = null;
         section
           .querySelector(".group-header")
           .addEventListener("click", function (e) {
@@ -1698,15 +1697,6 @@
               section.classList.toggle("open");
             }
           });
-        section.addEventListener("mouseenter", function () {
-          hoverTimer = setTimeout(function () {
-            section.classList.add("hover-open");
-          }, Settings.readerTocHoverDelay);
-        });
-        section.addEventListener("mouseleave", function () {
-          clearTimeout(hoverTimer);
-          section.classList.remove("hover-open");
-        });
       });
 
     localStorage.setItem(

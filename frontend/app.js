@@ -1397,24 +1397,11 @@
 
       const section = document.createElement("div");
       section.className = "group-section";
-      let hoverTimer = null;
 
       const header = document.createElement("div");
       header.className = "group-header";
       header.innerHTML = `<span>${groupLabel(key)}</span><span class="group-chevron">&#9654;</span>`;
       header.addEventListener("click", () => section.classList.toggle("open"));
-
-      section.addEventListener("mouseenter", () => {
-        hoverTimer = setTimeout(
-          () => section.classList.add("hover-open"),
-          Settings.navigationGroupOpenDelay,
-        );
-      });
-
-      section.addEventListener("mouseleave", () => {
-        clearTimeout(hoverTimer);
-        section.classList.remove("hover-open");
-      });
 
       const items = document.createElement("div");
       items.className = "group-items";
