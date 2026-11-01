@@ -907,8 +907,16 @@
   appFontSlider.addEventListener("input", function () {
     const size = parseInt(appFontSlider.value);
     appFontVal.textContent = size + "px";
-    applyUIConfig({ uiFontSize: size });
   });
+
+  function commitUIFontSize(size) {
+    appFontSlider.value = size;
+    appFontVal.textContent = size + "px";
+    applyUIConfig({ uiFontSize: size });
+    const cfg = Object.assign({}, currentCfg, { uiFontSize: size });
+    currentCfg = cfg;
+    window.go.main.App.SaveConfig(cfg);
+  }
 
   appFontFamily.addEventListener("click", function (event) {
     event.stopPropagation();
@@ -929,11 +937,25 @@
   });
 
   appFontSlider.addEventListener("change", function () {
-    const cfg = Object.assign({}, currentCfg, {
-      uiFontSize: parseInt(appFontSlider.value),
-    });
-    currentCfg = cfg;
-    window.go.main.App.SaveConfig(cfg);
+    commitUIFontSize(parseInt(appFontSlider.value));
+  });
+
+  document.addEventListener("keydown", function (event) {
+    if (!event.ctrlKey) return;
+    let direction = 0;
+    if (event.key === "+" || event.key === "=") direction = 1;
+    if (event.key === "-") direction = -1;
+    if (!direction) return;
+    event.preventDefault();
+    const currentSize = parseInt(appFontSlider.value);
+    const nextSize = Math.min(
+      Settings.uiFontRange.max,
+      Math.max(
+        Settings.uiFontRange.min,
+        currentSize + direction * Settings.uiFontRange.step,
+      ),
+    );
+    if (nextSize !== currentSize) commitUIFontSize(nextSize);
   });
 
   document

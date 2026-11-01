@@ -1849,3 +1849,15 @@ body.no-views .book-row-add-btn {
   color: var(--yellow);
   min-width: var(--library-app-font-val-min-width);
 }
+
+#app-menu-panel .app-menu-label,
+#app-menu-panel .app-dir-btn,
+#app-menu-panel .app-lang-btn,
+#app-menu-panel .app-menu-chevron,
+#app-menu-panel .app-dir-path,
+#app-menu-panel #app-theme,
+#app-menu-panel #app-font-family,
+#app-menu-panel .app-font-family-choice,
+#app-menu-panel #app-font-val {
+  font-size: var(--fs-base);
+}
