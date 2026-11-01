@@ -11,7 +11,12 @@
   </head>
 
   <body>
-    <button id="app-menu-toggle" type="button" aria-label="Settings" data-i18n="[aria-label]menu.settings">
+    <button
+      id="app-menu-toggle"
+      type="button"
+      aria-label="Settings"
+      data-i18n="[aria-label]menu.settings"
+    >
       <svg
         xmlns="http://www.w3.org/2000/svg"
         width="36"
@@ -32,10 +37,20 @@
       <div class="app-menu-submenu-wrap">
         <div class="app-menu-row">
           <span class="app-menu-label" data-i18n="menu.library">Library</span>
-          <button type="button" id="app-dir-pick" class="app-dir-btn" data-i18n="menu.choose">
+          <button
+            type="button"
+            id="app-dir-pick"
+            class="app-dir-btn"
+            data-i18n="menu.choose"
+          >
             Choose
           </button>
-          <button type="button" id="app-rescan-btn" class="app-dir-btn" data-i18n="menu.refresh">
+          <button
+            type="button"
+            id="app-rescan-btn"
+            class="app-dir-btn"
+            data-i18n="menu.refresh"
+          >
             Refresh
           </button>
           <span class="app-menu-chevron">›</span>
@@ -49,7 +64,9 @@
       <div class="app-menu-sep"></div>
       <div class="app-menu-submenu-wrap">
         <div class="app-menu-row">
-          <span class="app-menu-label" data-i18n="menu.appearance">Appearance</span>
+          <span class="app-menu-label" data-i18n="menu.appearance"
+            >Appearance</span
+          >
           <span class="app-menu-chevron">›</span>
         </div>
         <div class="app-submenu" id="app-appearance-submenu">
@@ -92,11 +109,10 @@
             </div>
           </div>
           <div class="app-menu-row">
-            <span class="app-menu-label" data-i18n="menu.fontSize">Font size</span>
-            <input
-              type="range"
-              id="app-font-slider"
-            />
+            <span class="app-menu-label" data-i18n="menu.fontSize"
+              >Font size</span
+            >
+            <input type="range" id="app-font-slider" />
             <span id="app-font-val"></span>
           </div>
         </div>
@@ -113,7 +129,9 @@
         </div>
         <div class="app-submenu" id="app-about-submenu">
           <div class="app-menu-row">
-            <span class="app-menu-label" data-i18n="menu.version">Version:</span>
+            <span class="app-menu-label" data-i18n="menu.version"
+              >Version:</span
+            >
             <span id="app-version-value" class="app-dir-path">dev</span>
             <img class="app-about-logo" src="logo.png" alt="" />
           </div>
@@ -127,22 +145,35 @@
         </div>
         <div class="app-submenu" id="app-language-submenu">
           <div class="app-menu-row">
-            <button type="button" class="app-lang-btn" data-lang="en">English</button>
+            <button type="button" class="app-lang-btn" data-lang="en">
+              English
+            </button>
           </div>
           <div class="app-menu-row">
-            <button type="button" class="app-lang-btn" data-lang="de">Deutsch</button>
+            <button type="button" class="app-lang-btn" data-lang="de">
+              Deutsch
+            </button>
           </div>
           <div class="app-menu-row">
-            <button type="button" class="app-lang-btn" data-lang="it">Italiano</button>
+            <button type="button" class="app-lang-btn" data-lang="it">
+              Italiano
+            </button>
           </div>
           <div class="app-menu-row">
-            <button type="button" class="app-lang-btn" data-lang="zh">中文</button>
+            <button type="button" class="app-lang-btn" data-lang="zh">
+              中文
+            </button>
           </div>
         </div>
       </div>
     </div>
     <aside id="sidebar">
-      <button id="sidebar-toggle" type="button" aria-label="Collapse sidebar" data-i18n="[aria-label]sidebar.collapse">
+      <button
+        id="sidebar-toggle"
+        type="button"
+        aria-label="Collapse sidebar"
+        data-i18n="[aria-label]sidebar.collapse"
+      >
         ‹
       </button>
       <header class="sidebar-header">
@@ -153,36 +184,14 @@
     <div id="sidebar-resizer" aria-hidden="true"></div>
     <main id="main">
       <div id="toolbar">
-        <button
-          id="view-to-filter-btn"
-          type="button"
-          title="Add filtered books to a view"
-          data-tooltip="views" data-i18n="[data-tooltip]tooltip.views"
-          disabled
-        >
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            width="24"
-            height="24"
-            viewBox="0 0 24 24"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="5.5"
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            class="lucide lucide-plus"
-          >
-            <path d="M5 12h14" />
-            <path d="M12 5v14" />
-          </svg>
-        </button>
         <div class="search-wrapper">
           <div class="search-input-row">
             <div id="active-filters"></div>
             <input
               id="search"
               type="text"
-              placeholder="search titles, authors…" data-i18n="[placeholder]search.placeholder"
+              placeholder="search titles, authors…"
+              data-i18n="[placeholder]search.placeholder"
               autocomplete="off"
               autocorrect="off"
               autocapitalize="off"
@@ -212,7 +221,8 @@
             id="continue-reading"
             type="button"
             aria-label="Reader"
-            data-tooltip="reader" data-i18n="[data-tooltip]tooltip.reader"
+            data-tooltip="reader"
+            data-i18n="[data-tooltip]tooltip.reader"
             disabled
           >
             <svg
@@ -237,7 +247,8 @@
             id="library-btn"
             type="button"
             aria-label="Library"
-            data-tooltip="library" data-i18n="[data-tooltip]tooltip.library"
+            data-tooltip="library"
+            data-i18n="[data-tooltip]tooltip.library"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -260,7 +271,8 @@
             id="stats-btn"
             type="button"
             aria-label="Stats"
-            data-tooltip="stats" data-i18n="[data-tooltip]tooltip.stats"
+            data-tooltip="stats"
+            data-i18n="[data-tooltip]tooltip.stats"
           >
             <svg
               xmlns="http://www.w3.org/2000/svg"
@@ -308,37 +320,51 @@
         </div>
         <div id="prefs-body">
           <div class="prefs-row">
-            <label class="prefs-label" for="prefs-library-dir"
-              data-i18n="prefs.libraryFolder">Library folder</label
+            <label
+              class="prefs-label"
+              for="prefs-library-dir"
+              data-i18n="prefs.libraryFolder"
+              >Library folder</label
             >
             <div class="prefs-input-row">
               <input
                 id="prefs-library-dir"
                 type="text"
                 class="prefs-input"
-                placeholder="No folder selected" data-i18n="[placeholder]prefs.noFolderSelected"
+                placeholder="No folder selected"
+                data-i18n="[placeholder]prefs.noFolderSelected"
                 readonly
               />
-              <button id="prefs-pick-dir" type="button" class="prefs-btn" data-i18n="menu.choose">
+              <button
+                id="prefs-pick-dir"
+                type="button"
+                class="prefs-btn"
+                data-i18n="menu.choose"
+              >
                 Choose…
               </button>
             </div>
           </div>
           <div class="prefs-row">
-            <label class="prefs-label" for="prefs-font-family" data-i18n="prefs.uiFont">UI font</label>
+            <label
+              class="prefs-label"
+              for="prefs-font-family"
+              data-i18n="prefs.uiFont"
+              >UI font</label
+            >
             <select id="prefs-font-family" class="prefs-input">
               <option value="">System default</option>
             </select>
           </div>
           <div class="prefs-row">
-            <label class="prefs-label" for="prefs-font-size"
-              data-i18n="prefs.uiFontSize">UI font size</label
+            <label
+              class="prefs-label"
+              for="prefs-font-size"
+              data-i18n="prefs.uiFontSize"
+              >UI font size</label
             >
             <div class="prefs-input-row">
-              <input
-                id="prefs-font-size"
-                type="range"
-              />
+              <input id="prefs-font-size" type="range" />
               <span id="prefs-font-size-val"></span>
             </div>
           </div>
@@ -369,7 +395,9 @@
         <div id="help-body">
           <div class="help-row">
             <span class="help-keys">↓ / j</span
-            ><span class="help-desc" data-i18n="help.scrollDown">Scroll down</span>
+            ><span class="help-desc" data-i18n="help.scrollDown"
+              >Scroll down</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">↑ / k</span
@@ -377,35 +405,51 @@
           </div>
           <div class="help-row">
             <span class="help-keys">J</span
-            ><span class="help-desc" data-i18n="help.endOfChapter">End of chapter</span>
+            ><span class="help-desc" data-i18n="help.endOfChapter"
+              >End of chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">K</span
-            ><span class="help-desc" data-i18n="help.beginningOfChapter">Beginning of chapter</span>
+            ><span class="help-desc" data-i18n="help.beginningOfChapter"
+              >Beginning of chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">→ / l</span
-            ><span class="help-desc" data-i18n="help.nextChapter">Next chapter</span>
+            ><span class="help-desc" data-i18n="help.nextChapter"
+              >Next chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">← / h</span
-            ><span class="help-desc" data-i18n="help.prevChapter">Previous chapter</span>
+            ><span class="help-desc" data-i18n="help.prevChapter"
+              >Previous chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">gg</span
-            ><span class="help-desc" data-i18n="help.firstChapter">First chapter</span>
+            ><span class="help-desc" data-i18n="help.firstChapter"
+              >First chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">G</span
-            ><span class="help-desc" data-i18n="help.lastChapter">Last chapter</span>
+            ><span class="help-desc" data-i18n="help.lastChapter"
+              >Last chapter</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">Tab</span
-            ><span class="help-desc" data-i18n="help.toggleToc">Toggle TOC panel</span>
+            ><span class="help-desc" data-i18n="help.toggleToc"
+              >Toggle TOC panel</span
+            >
           </div>
           <div class="help-row">
             <span class="help-keys">^F</span
-            ><span class="help-desc" data-i18n="help.openSearch">Open chapter search</span>
+            ><span class="help-desc" data-i18n="help.openSearch"
+              >Open chapter search</span
+            >
           </div>
         </div>
       </div>

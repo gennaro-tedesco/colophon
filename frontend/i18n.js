@@ -39,7 +39,6 @@
         },
         nav: {
           allBooks: "All books",
-          views: "Views",
         },
         groups: {
           language: "Language",
@@ -58,14 +57,7 @@
         books: {
           noBooks: "no books found",
           noData: "no data",
-          addToView: "Add to view",
-          removeFromView: "Remove from view",
           continueReading: "Continue reading: {{title}}",
-        },
-        views: {
-          newView: "New view",
-          deleteView: "Delete view",
-          namePlaceholder: "View name\u2026",
         },
         prefs: {
           title: "Preferences",
@@ -95,7 +87,6 @@
           tags: "Tags",
         },
         tooltip: {
-          views: "views",
           reader: "reader",
           library: "library",
           stats: "stats",
@@ -141,7 +132,6 @@
         },
         nav: {
           allBooks: "Alle B\u00fccher",
-          views: "Ansichten",
         },
         groups: {
           language: "Sprache",
@@ -160,14 +150,7 @@
         books: {
           noBooks: "keine B\u00fccher gefunden",
           noData: "keine Daten",
-          addToView: "Zur Ansicht hinzuf\u00fcgen",
-          removeFromView: "Aus Ansicht entfernen",
           continueReading: "Weiterlesen: {{title}}",
-        },
-        views: {
-          newView: "Neue Ansicht",
-          deleteView: "Ansicht l\u00f6schen",
-          namePlaceholder: "Name der Ansicht\u2026",
         },
         prefs: {
           title: "Einstellungen",
@@ -197,7 +180,6 @@
           tags: "Tags",
         },
         tooltip: {
-          views: "Ansichten",
           reader: "Leser",
           library: "Bibliothek",
           stats: "Statistiken",
@@ -243,7 +225,6 @@
         },
         nav: {
           allBooks: "Tutti i libri",
-          views: "Viste",
         },
         groups: {
           language: "Lingua",
@@ -262,14 +243,7 @@
         books: {
           noBooks: "nessun libro trovato",
           noData: "nessun dato",
-          addToView: "Aggiungi alla vista",
-          removeFromView: "Rimuovi dalla vista",
           continueReading: "Continua a leggere: {{title}}",
-        },
-        views: {
-          newView: "Nuova vista",
-          deleteView: "Elimina vista",
-          namePlaceholder: "Nome della vista\u2026",
         },
         prefs: {
           title: "Preferenze",
@@ -299,7 +273,6 @@
           tags: "Tag",
         },
         tooltip: {
-          views: "viste",
           reader: "lettore",
           library: "libreria",
           stats: "statistiche",
@@ -346,7 +319,6 @@
         },
         nav: {
           allBooks: "\u5168\u90e8\u4e66\u7c4d",
-          views: "\u89c6\u56fe",
         },
         groups: {
           language: "\u8bed\u8a00",
@@ -365,14 +337,7 @@
         books: {
           noBooks: "\u672a\u627e\u5230\u4e66\u7c4d",
           noData: "\u6682\u65e0\u6570\u636e",
-          addToView: "\u6dfb\u52a0\u5230\u89c6\u56fe",
-          removeFromView: "\u4ece\u89c6\u56fe\u79fb\u9664",
           continueReading: "\u7ee7\u7eed\u9605\u8bfb\uff1a{{title}}",
-        },
-        views: {
-          newView: "\u65b0\u5efa\u89c6\u56fe",
-          deleteView: "\u5220\u9664\u89c6\u56fe",
-          namePlaceholder: "\u89c6\u56fe\u540d\u79f0\u2026",
         },
         prefs: {
           title: "\u504f\u597d\u8bbe\u7f6e",
@@ -402,7 +367,6 @@
           tags: "\u6807\u7b7e",
         },
         tooltip: {
-          views: "\u89c6\u56fe",
           reader: "\u9605\u8bfb\u5668",
           library: "\u4e66\u5e93",
           stats: "\u7edf\u8ba1",

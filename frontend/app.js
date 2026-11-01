@@ -1,10 +1,8 @@
 (function () {
   let allBooks = [];
-  let allViews = [];
   let navGroups = groupValues(() => []);
   let navCounts = groupValues(() => ({}));
   let activeFilters = createEmptyFilters();
-  let activeViewId = "";
   let currentView = "library";
   let statsCharts = [];
   let isDrilldownSuspended = false;
@@ -38,9 +36,7 @@
   const continueReading = document.getElementById("continue-reading");
   const readerOverlay = document.getElementById("reader-overlay");
   const readerOverlayFrame = document.getElementById("reader-overlay-frame");
-  const viewToFilterBtn = document.getElementById("view-to-filter-btn");
   const statsBtnStatsIcon = Icons.stats;
-  const statsBtnViewIcon = Icons.book;
 
   function groupLabel(key) {
     return t("groups." + key);
@@ -71,11 +67,6 @@
   const UI_FONT_SIZE_DEFAULT = parseFloat(
     settingValue("--ui-font-size-default"),
   );
-  const VIEWS_HEIGHT_KEY = Settings.viewsHeightKey;
-  const VIEWS_HEIGHT_MIN = parseFloat(settingValue("--views-height-min"));
-  const VIEWS_HEIGHT_DEFAULT = parseFloat(
-    settingValue("--views-height-default"),
-  );
   let currentCfg = {};
   let configReady = false;
   let scanInProgress = false;
@@ -86,11 +77,6 @@
   let scanHideTimer = null;
   let scanVisibleAt = 0;
   let startupScanPending = false;
-  let activeViewAddOpen = false;
-  let activeViewAddQuery = "";
-  let activeViewAddScope = "all";
-  let viewAddScopeMenuEl = null;
-  let viewAddScopeCloseHandler = null;
   let searchScope = "all";
   const SEARCH_SCOPE_VALUES = [
     "all",
@@ -195,53 +181,6 @@
     });
   }
 
-  function initViewsResize() {
-    const saved = parseInt(localStorage.getItem(VIEWS_HEIGHT_KEY) || "", 10);
-    if (saved >= VIEWS_HEIGHT_MIN) {
-      document.documentElement.style.setProperty("--views-h", saved + "px");
-    }
-  }
-
-  function attachViewsResizerDrag(resizerEl) {
-    if (!resizerEl || settingValue("--sidebar-resize-enabled") === "0") return;
-    resizerEl.addEventListener("pointerdown", function (event) {
-      const startHeight =
-        parseFloat(
-          getComputedStyle(document.documentElement).getPropertyValue(
-            "--views-h",
-          ),
-        ) || VIEWS_HEIGHT_DEFAULT;
-      const startY = event.clientY;
-      document.body.classList.add("resizing-views");
-      resizerEl.setPointerCapture(event.pointerId);
-      function onMove(e) {
-        const newH = Math.max(
-          VIEWS_HEIGHT_MIN,
-          startHeight - (e.clientY - startY),
-        );
-        document.documentElement.style.setProperty("--views-h", newH + "px");
-      }
-      function onEnd(e) {
-        resizerEl.removeEventListener("pointermove", onMove);
-        resizerEl.removeEventListener("pointerup", onEnd);
-        resizerEl.removeEventListener("pointercancel", onEnd);
-        document.body.classList.remove("resizing-views");
-        resizerEl.releasePointerCapture(e.pointerId);
-        const finalH = Math.round(
-          parseFloat(
-            getComputedStyle(document.documentElement).getPropertyValue(
-              "--views-h",
-            ),
-          ) || VIEWS_HEIGHT_DEFAULT,
-        );
-        localStorage.setItem(VIEWS_HEIGHT_KEY, String(finalH));
-      }
-      resizerEl.addEventListener("pointermove", onMove);
-      resizerEl.addEventListener("pointerup", onEnd);
-      resizerEl.addEventListener("pointercancel", onEnd);
-    });
-  }
-
   function loadLibrary() {
     fetch(Settings.routes.library)
       .then((r) => {
@@ -264,7 +203,6 @@
         }
         endScanUI();
         applyLibraryData(allBooks);
-        loadViews();
       })
       .catch(() => {
         if (configReady && currentCfg.libraryDir) {
@@ -486,7 +424,6 @@
       startupScanPending = false;
       endScanUI();
       applyLibraryData(lib && lib.books ? lib.books : []);
-      loadViews();
     });
   }
 
@@ -513,9 +450,7 @@
   localizeDOM();
 
   loadLibrary();
-  loadViews();
   initSidebarResize();
-  initViewsResize();
 
   // ── Preferences ──
   const prefsBackdrop = document.getElementById("prefs-backdrop");
@@ -606,7 +541,6 @@
           prefsLibraryDir.value = cfg.libraryDir || "";
         });
         applyLibraryData(lib.books || []);
-        loadViews();
       })
       .catch(function () {
         endScanUI();
@@ -635,14 +569,10 @@
         prefsBackdrop.classList.add("hidden");
         if (cfg.libraryDir) {
           loadLibrary();
-          loadViews();
           return;
         }
         endScanUI();
         applyLibraryData([]);
-        allViews = [];
-        renderViewsSection();
-        updateViewToFilterBtn();
       })
       .catch(function () {
         if (shouldScan) {
@@ -878,7 +808,6 @@
         updateSearchScopeChoices(item.value);
         closeSearchScopeMenu();
         renderFiltered();
-        updateViewToFilterBtn();
         updateViewButtons();
       });
       searchScopeMenu.appendChild(choice);
@@ -896,7 +825,6 @@
           currentCfg = cfg;
           appDirName.textContent = cfg.libraryDir || "—";
           applyLibraryData(lib.books || []);
-          loadViews();
         });
       })
       .catch(function () {
@@ -971,7 +899,6 @@
         .then(function (lib) {
           endScanUI();
           applyLibraryData(lib && lib.books ? lib.books : []);
-          loadViews();
         })
         .catch(function () {
           endScanUI();
@@ -1019,15 +946,6 @@
     if (!searchScopeWrap.contains(event.target)) {
       closeSearchScopeMenu();
     }
-    if (
-      activeViewAddOpen &&
-      !event.target.closest(".active-view-add-section")
-    ) {
-      activeViewAddOpen = false;
-      activeViewAddQuery = "";
-      activeViewAddScope = "all";
-      renderFiltered();
-    }
   });
 
   (function initContinueReading() {
@@ -1054,7 +972,6 @@
   search.addEventListener("input", () => {
     searchClear.classList.toggle("visible", search.value.length > 0);
     renderFiltered();
-    updateViewToFilterBtn();
     updateViewButtons();
   });
 
@@ -1082,10 +999,6 @@
     clearFilters();
   });
   statsBtn.addEventListener("click", function () {
-    if (currentView === "stats" && activeViewId) {
-      setView("library");
-      return;
-    }
     setView("stats");
   });
   updateViewButtons();
@@ -1167,15 +1080,10 @@
 
   function clearFilters() {
     activeFilters = createEmptyFilters();
-    activeViewId = "";
-    activeViewAddOpen = false;
-    activeViewAddQuery = "";
-    activeViewAddScope = "all";
     search.value = "";
     searchClear.classList.remove("visible");
     updateNavState();
     renderFiltered();
-    updateViewToFilterBtn();
     updateViewButtons();
   }
 
@@ -1187,7 +1095,6 @@
     }
     updateNavState();
     renderFiltered();
-    updateViewToFilterBtn();
     updateViewButtons();
   }
 
@@ -1212,23 +1119,13 @@
   function updateViewButtons() {
     const cleanLibrary =
       currentView === "library" &&
-      activeViewId === "" &&
       !hasActiveFilters() &&
       search.value.trim() === "";
-    const statsReturnsToView = currentView === "stats" && activeViewId !== "";
     libraryBtn.classList.toggle("current", cleanLibrary);
-    statsBtn.classList.toggle(
-      "current",
-      currentView === "stats" && !statsReturnsToView,
-    );
-    statsBtn.dataset.tooltip = statsReturnsToView ? "view" : "stats";
-    statsBtn.setAttribute(
-      "aria-label",
-      t(statsReturnsToView ? "tooltip.views" : "tooltip.stats"),
-    );
-    statsBtn.innerHTML = statsReturnsToView
-      ? statsBtnViewIcon
-      : statsBtnStatsIcon;
+    statsBtn.classList.toggle("current", currentView === "stats");
+    statsBtn.dataset.tooltip = "stats";
+    statsBtn.setAttribute("aria-label", t("tooltip.stats"));
+    statsBtn.innerHTML = statsBtnStatsIcon;
   }
 
   function closeDrilldownModal() {
@@ -1551,18 +1448,7 @@
 
   function filterBooks() {
     const q = search.value.trim().toLowerCase();
-    const activeView = activeViewId
-      ? allViews.find(function (view) {
-          return view.id === activeViewId;
-        })
-      : null;
-    const activeViewPaths = activeView
-      ? new Set(activeView.bookPaths || [])
-      : null;
-
     return allBooks.filter((book) => {
-      if (activeViewPaths && !activeViewPaths.has(book.path)) return false;
-
       for (const [type, values] of Object.entries(activeFilters)) {
         if (values.size === 0) continue;
 
@@ -1614,19 +1500,7 @@
 
   function renderBookList(filtered) {
     list.innerHTML = "";
-    const activeView = activeViewId
-      ? allViews.find(function (view) {
-          return view.id === activeViewId;
-        })
-      : null;
-
-    if (activeViewId) {
-      if (activeView) {
-        list.appendChild(buildActiveViewBanner(activeView));
-      }
-    }
-
-    if (filtered.length === 0 && !activeView) {
+    if (filtered.length === 0) {
       const emptyEl = document.createElement("div");
       emptyEl.className = "empty";
       emptyEl.textContent = t("books.noBooks");
@@ -1636,186 +1510,9 @@
 
     const frag = document.createDocumentFragment();
     filtered.forEach((book) => {
-      frag.appendChild(
-        bookRow(book, activeViewId ? { viewId: activeViewId } : {}),
-      );
+      frag.appendChild(bookRow(book));
     });
-    if (activeView) {
-      frag.appendChild(buildActiveViewAddSection(activeView));
-    }
     list.appendChild(frag);
-  }
-
-  function buildActiveViewAddSection(view) {
-    const wrap = document.createElement("div");
-    wrap.className = "active-view-add-section";
-
-    const row = document.createElement("div");
-    row.className = "book-row";
-
-    const header = document.createElement("div");
-    header.className = "book-row-header";
-
-    const titleWrap = document.createElement("div");
-    titleWrap.className = "book-row-title-wrap";
-
-    if (activeViewAddOpen) {
-      const searchRow = document.createElement("div");
-      searchRow.className = "search-input-row view-add-search-row";
-      searchRow.addEventListener("click", function (event) {
-        event.stopPropagation();
-      });
-
-      const input = document.createElement("input");
-      input.type = "text";
-      input.className = "view-add-search-input";
-      input.placeholder = searchPlaceholderForScope(activeViewAddScope);
-      input.autocomplete = "off";
-      input.autocorrect = "off";
-      input.autocapitalize = "off";
-      input.spellcheck = false;
-      input.value = activeViewAddQuery;
-      input.addEventListener("input", function () {
-        activeViewAddQuery = input.value;
-        renderFiltered();
-      });
-      input.addEventListener("keydown", function (event) {
-        if (event.key === "Escape") {
-          closeViewAddScopeDropdown();
-          activeViewAddOpen = false;
-          activeViewAddQuery = "";
-          activeViewAddScope = "all";
-          renderFiltered();
-        }
-      });
-
-      const scopeBtn = document.createElement("button");
-      scopeBtn.type = "button";
-      scopeBtn.className = "view-add-scope-btn";
-      scopeBtn.setAttribute("aria-haspopup", "listbox");
-      scopeBtn.innerHTML = Icons.chevronDown;
-      scopeBtn.addEventListener("mousedown", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        openViewAddScopeDropdown(scopeBtn, input);
-      });
-
-      searchRow.appendChild(input);
-      searchRow.appendChild(scopeBtn);
-      titleWrap.appendChild(searchRow);
-
-      setTimeout(function () {
-        input.focus();
-        input.setSelectionRange(input.value.length, input.value.length);
-      }, 0);
-    } else {
-      closeViewAddScopeDropdown();
-      const title = document.createElement("span");
-      title.className = "book-row-title";
-      title.innerHTML = "&nbsp;";
-      titleWrap.appendChild(title);
-
-      const addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "book-row-add-btn";
-      addBtn.title = t("books.addToView");
-      addBtn.innerHTML = Icons.plus;
-      addBtn.addEventListener("click", function (event) {
-        event.stopPropagation();
-        activeViewAddOpen = true;
-        activeViewAddQuery = "";
-        renderFiltered();
-      });
-      titleWrap.appendChild(addBtn);
-    }
-
-    header.appendChild(titleWrap);
-    row.appendChild(header);
-    wrap.appendChild(row);
-
-    if (!activeViewAddOpen) return wrap;
-
-    const q = activeViewAddQuery.trim().toLowerCase();
-    if (!q) return wrap;
-
-    const activeViewPaths = new Set(view.bookPaths || []);
-    const matches = allBooks.filter(function (book) {
-      if (activeViewPaths.has(book.path)) return false;
-      const haystack = searchHaystack(book, activeViewAddScope);
-      return haystack.includes(q);
-    });
-
-    if (matches.length === 0) {
-      const emptyEl = document.createElement("div");
-      emptyEl.className = "empty";
-      emptyEl.textContent = t("books.noBooks");
-      wrap.appendChild(emptyEl);
-      return wrap;
-    }
-
-    matches.forEach(function (book) {
-      wrap.appendChild(
-        bookRow(book, {
-          disableOpen: true,
-          addAction: function () {
-            window.go.main.App.AddBooksToView(view.id, [book.path]).then(
-              function () {
-                activeViewAddOpen = false;
-                activeViewAddQuery = "";
-                activeViewAddScope = "all";
-                mergeViewBooks(view.id, [book.path]);
-              },
-            );
-          },
-        }),
-      );
-    });
-
-    return wrap;
-  }
-
-  function buildActiveViewBanner(view) {
-    const banner = document.createElement("div");
-    banner.className = "active-view-banner";
-
-    const titleWrap = document.createElement("div");
-    titleWrap.className = "active-view-banner-title-wrap";
-
-    const titleBtn = document.createElement("button");
-    titleBtn.type = "button";
-    titleBtn.className = "active-view-banner-title";
-    titleBtn.textContent = view.name;
-    titleBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      startRenameView(view, titleBtn, deleteBtn);
-    });
-
-    const deleteBtn = document.createElement("button");
-    deleteBtn.type = "button";
-    deleteBtn.className = "active-view-banner-delete";
-    deleteBtn.title = t("views.deleteView");
-    deleteBtn.innerHTML = Icons.trash;
-    deleteBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      window.go.main.App.DeleteView(view.id).then(function () {
-        allViews = allViews.filter(function (v) {
-          return v.id !== view.id;
-        });
-        if (activeViewId === view.id) activeViewId = "";
-        renderViewsSection();
-        updateViewToFilterBtn();
-        updateViewButtons();
-        document.body.classList.toggle("no-views", allViews.length === 0);
-        renderFiltered();
-      });
-    });
-
-    titleWrap.appendChild(titleBtn);
-    titleWrap.appendChild(deleteBtn);
-
-    banner.appendChild(titleWrap);
-
-    return banner;
   }
 
   function renderStatsView(books) {
@@ -1975,335 +1672,6 @@
     }
   }
 
-  // ── Views ──
-
-  let viewsSectionEl = null;
-  let viewPickerAnchorEl = null;
-  let viewPickerCloseHandler = null;
-
-  function loadViews() {
-    if (!window.go || !window.go.main) return;
-    window.go.main.App.GetViews().then(function (views) {
-      allViews = views || [];
-      renderViewsSection();
-      updateViewToFilterBtn();
-      document.body.classList.toggle("no-views", allViews.length === 0);
-      renderFiltered();
-    });
-  }
-
-  function updateViewToFilterBtn() {
-    if (!viewToFilterBtn) return;
-    const hasContent = hasActiveFilters() || search.value.trim().length > 0;
-    viewToFilterBtn.disabled = allViews.length === 0 || !hasContent;
-  }
-
-  function renderViewsSection() {
-    if (viewsSectionEl && viewsSectionEl.parentNode) {
-      viewsSectionEl.remove();
-    }
-    viewsSectionEl = buildViewsSection();
-    if (viewsSectionEl) {
-      nav.insertAdjacentElement("afterend", viewsSectionEl);
-    }
-  }
-
-  function mergeViewBooks(viewId, paths) {
-    const view = allViews.find(function (v) {
-      return v.id === viewId;
-    });
-    if (!view) return null;
-    view.bookPaths = Array.from(new Set((view.bookPaths || []).concat(paths)));
-    renderViewsSection();
-    renderFiltered();
-    return view;
-  }
-
-  function buildViewsSection() {
-    const section = document.createElement("div");
-    section.className = "views-section";
-
-    const header = document.createElement("div");
-    header.className = "views-header";
-
-    const headerLabel = document.createElement("span");
-    headerLabel.textContent = t("nav.views");
-
-    const headerActions = document.createElement("span");
-    headerActions.className = "views-header-actions";
-
-    const createBtn = document.createElement("button");
-    createBtn.type = "button";
-    createBtn.className = "view-action-btn";
-    createBtn.title = t("views.newView");
-    createBtn.innerHTML = Icons.plus;
-    createBtn.addEventListener("click", function (e) {
-      e.stopPropagation();
-      showCreateViewInput(itemsInner);
-    });
-
-    headerActions.appendChild(createBtn);
-    header.appendChild(headerLabel);
-    header.appendChild(headerActions);
-
-    const items = document.createElement("div");
-    items.className = "views-items";
-
-    const itemsInner = document.createElement("div");
-    itemsInner.className = "views-items-inner";
-
-    allViews.forEach(function (view) {
-      itemsInner.appendChild(buildViewItem(view));
-    });
-
-    items.appendChild(itemsInner);
-
-    const resizer = document.createElement("div");
-    resizer.id = "views-resizer";
-    attachViewsResizerDrag(resizer);
-
-    section.appendChild(header);
-    section.appendChild(resizer);
-    section.appendChild(items);
-
-    return section;
-  }
-
-  function buildViewItem(view) {
-    const item = document.createElement("div");
-    item.className = "group-item view-item";
-    item.dataset.viewId = view.id;
-
-    const label = document.createElement("span");
-    label.className = "view-item-label";
-    label.textContent = view.name;
-
-    const count = document.createElement("span");
-    count.className = "group-item-count";
-    count.textContent = String((view.bookPaths || []).length);
-
-    item.appendChild(label);
-    item.appendChild(count);
-
-    item.addEventListener("click", function () {
-      activeViewId = activeViewId === view.id ? "" : view.id;
-      activeViewAddOpen = false;
-      activeViewAddQuery = "";
-      activeViewAddScope = "all";
-      renderFiltered();
-      updateViewButtons();
-    });
-
-    return item;
-  }
-
-  function showCreateViewInput(itemsInner) {
-    if (itemsInner.querySelector(".view-create-container")) return;
-    const container = document.createElement("div");
-    container.className = "view-create-container";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "view-name-input";
-    input.placeholder = t("views.namePlaceholder");
-    input.autocomplete = "off";
-    input.autocorrect = "off";
-    input.autocapitalize = "off";
-    input.spellcheck = false;
-    container.appendChild(input);
-    itemsInner.insertBefore(container, itemsInner.firstChild);
-    input.focus();
-
-    function confirm() {
-      const name = input.value.trim();
-      container.remove();
-      if (!name) return;
-      window.go.main.App.CreateView(name).then(function (view) {
-        allViews.push(view);
-        renderViewsSection();
-        updateViewToFilterBtn();
-        document.body.classList.remove("no-views");
-        renderFiltered();
-      });
-    }
-
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        confirm();
-      }
-      if (e.key === "Escape") {
-        container.remove();
-      }
-    });
-    input.addEventListener("blur", confirm);
-  }
-
-  function startRenameView(view, labelEl, deleteBtnEl) {
-    if (labelEl.querySelector("input")) return;
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "view-name-input view-name-input-inline";
-    input.value = view.name;
-    const originalText = labelEl.textContent;
-    let cancelled = false;
-    labelEl.textContent = "";
-    labelEl.appendChild(input);
-    if (deleteBtnEl) deleteBtnEl.style.display = "none";
-    input.select();
-
-    function confirm() {
-      if (cancelled) return;
-      const name = input.value.trim() || originalText;
-      labelEl.textContent = name;
-      if (deleteBtnEl) deleteBtnEl.style.display = "";
-      if (name !== originalText) {
-        view.name = name;
-        renderViewsSection();
-        renderFiltered();
-        window.go.main.App.RenameView(view.id, name);
-      }
-    }
-
-    input.addEventListener("keydown", function (e) {
-      if (e.key === "Enter") {
-        e.preventDefault();
-        input.blur();
-      }
-      if (e.key === "Escape") {
-        cancelled = true;
-        labelEl.textContent = originalText;
-        if (deleteBtnEl) deleteBtnEl.style.display = "";
-      }
-    });
-    input.addEventListener("blur", confirm);
-  }
-
-  function openViewPickerDropdown(anchorEl, onSelect) {
-    if (
-      viewPickerAnchorEl === anchorEl &&
-      document.getElementById("view-picker-dropdown")
-    ) {
-      closeViewPickerDropdown();
-      return;
-    }
-    closeViewPickerDropdown();
-    if (allViews.length === 0) return;
-
-    const dropdown = document.createElement("div");
-    dropdown.id = "view-picker-dropdown";
-    dropdown.className = "view-picker-dropdown";
-
-    allViews.forEach(function (view) {
-      const item = document.createElement("button");
-      item.type = "button";
-      item.className = "view-picker-item";
-      item.textContent = view.name;
-      item.addEventListener("click", function (e) {
-        e.stopPropagation();
-        closeViewPickerDropdown();
-        onSelect(view);
-      });
-      dropdown.appendChild(item);
-    });
-
-    document.body.appendChild(dropdown);
-    const rect = anchorEl.getBoundingClientRect();
-    dropdown.style.top = rect.bottom + Settings.dropdownGap + "px";
-    dropdown.style.left = rect.left + "px";
-    viewPickerAnchorEl = anchorEl;
-    viewPickerCloseHandler = function (event) {
-      if (dropdown.contains(event.target) || anchorEl.contains(event.target))
-        return;
-      closeViewPickerDropdown();
-    };
-    setTimeout(function () {
-      document.addEventListener("mousedown", viewPickerCloseHandler);
-    }, 0);
-  }
-
-  function closeViewPickerDropdown() {
-    const el = document.getElementById("view-picker-dropdown");
-    if (el) el.remove();
-    if (viewPickerCloseHandler) {
-      document.removeEventListener("mousedown", viewPickerCloseHandler);
-      viewPickerCloseHandler = null;
-    }
-    viewPickerAnchorEl = null;
-  }
-
-  function openViewAddScopeDropdown(anchorEl, input) {
-    closeViewAddScopeDropdown();
-    const menu = document.createElement("div");
-    menu.id = "view-add-scope-menu";
-    menu.className = "app-font-family-menu";
-    menu.style.cssText =
-      "position:fixed;opacity:1;pointer-events:auto;z-index:" +
-      Settings.floatingMenuLayer +
-      ";";
-    menu.setAttribute("role", "listbox");
-    menu.setAttribute("aria-label", "Search scope");
-    searchScopes().forEach(function (item) {
-      const choice = document.createElement("button");
-      choice.type = "button";
-      choice.className = "app-font-family-choice";
-      choice.dataset.value = item.value;
-      choice.textContent = item.label;
-      choice.setAttribute("role", "option");
-      const isActive = item.value === activeViewAddScope;
-      choice.classList.toggle("is-active", isActive);
-      choice.setAttribute("aria-selected", isActive ? "true" : "false");
-      choice.addEventListener("mousedown", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        activeViewAddScope = item.value;
-        input.placeholder = searchPlaceholderForScope(item.value);
-        closeViewAddScopeDropdown();
-        renderFiltered();
-      });
-      menu.appendChild(choice);
-    });
-    document.body.appendChild(menu);
-    const rect = anchorEl.getBoundingClientRect();
-    menu.style.top = rect.bottom + Settings.dropdownGap + "px";
-    menu.style.left = Math.max(0, rect.right - menu.offsetWidth) + "px";
-    viewAddScopeMenuEl = menu;
-    viewAddScopeCloseHandler = function (event) {
-      if (menu.contains(event.target) || anchorEl.contains(event.target))
-        return;
-      closeViewAddScopeDropdown();
-    };
-    setTimeout(function () {
-      document.addEventListener("mousedown", viewAddScopeCloseHandler);
-    }, 0);
-  }
-
-  function closeViewAddScopeDropdown() {
-    if (viewAddScopeMenuEl) {
-      viewAddScopeMenuEl.remove();
-      viewAddScopeMenuEl = null;
-    }
-    if (viewAddScopeCloseHandler) {
-      document.removeEventListener("mousedown", viewAddScopeCloseHandler);
-      viewAddScopeCloseHandler = null;
-    }
-  }
-
-  if (viewToFilterBtn) {
-    viewToFilterBtn.addEventListener("click", function () {
-      if (viewToFilterBtn.disabled) return;
-      openViewPickerDropdown(viewToFilterBtn, function (view) {
-        const paths = filterBooks().map(function (b) {
-          return b.path;
-        });
-        if (paths.length === 0) return;
-        window.go.main.App.AddBooksToView(view.id, paths).then(function () {
-          mergeViewBooks(view.id, paths);
-        });
-      });
-    });
-  }
-
   function bookRow(book, options = {}) {
     const row = document.createElement("div");
     row.className = "book-row";
@@ -2357,68 +1725,12 @@
     author.className = "book-row-author";
     author.textContent = (book.authors || []).join(", ");
 
-    let addBtn = null;
-    if (!options.hideViewActions && allViews.length > 0) {
-      addBtn = document.createElement("button");
-      addBtn.type = "button";
-      addBtn.className = "book-row-add-btn";
-      addBtn.title = t("books.addToView");
-      addBtn.innerHTML = Icons.plus;
-      addBtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        if (options.addAction) {
-          options.addAction(book);
-          return;
-        }
-        openViewPickerDropdown(addBtn, function (view) {
-          window.go.main.App.AddBooksToView(view.id, [book.path]).then(
-            function () {
-              mergeViewBooks(view.id, [book.path]);
-            },
-          );
-        });
-      });
-    }
-
-    if (options.viewId) {
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.className = "book-row-remove-btn";
-      removeBtn.title = t("books.removeFromView");
-      removeBtn.innerHTML = Icons.x;
-      removeBtn.addEventListener("click", function (e) {
-        e.stopPropagation();
-        window.go.main.App.RemoveBookFromView(options.viewId, book.path).then(
-          function () {
-            const v = allViews.find(function (v) {
-              return v.id === options.viewId;
-            });
-            if (v) {
-              v.bookPaths = (v.bookPaths || []).filter(function (p) {
-                return p !== book.path;
-              });
-            }
-            renderViewsSection();
-            renderFiltered();
-          },
-        );
-      });
-      const titleWrap = document.createElement("div");
-      titleWrap.className = "book-row-title-wrap";
-      titleWrap.appendChild(title);
-      titleWrap.appendChild(removeBtn);
-      header.appendChild(titleWrap);
-      header.appendChild(chips);
-      header.appendChild(author);
-    } else {
-      const titleWrap = document.createElement("div");
-      titleWrap.className = "book-row-title-wrap";
-      titleWrap.appendChild(title);
-      if (addBtn) titleWrap.appendChild(addBtn);
-      header.appendChild(titleWrap);
-      header.appendChild(chips);
-      header.appendChild(author);
-    }
+    const titleWrap = document.createElement("div");
+    titleWrap.className = "book-row-title-wrap";
+    titleWrap.appendChild(title);
+    header.appendChild(titleWrap);
+    header.appendChild(chips);
+    header.appendChild(author);
 
     const preview = document.createElement("div");
     preview.className = "book-row-preview";

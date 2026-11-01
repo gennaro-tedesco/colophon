@@ -14,6 +14,5 @@ const (
 	bookCacheDirectory        = "cache"
 	configurationFilename     = "config.json"
 	jsonExtension             = ".json"
-	viewCacheSuffix           = "-views" + jsonExtension
 	applicationTitle          = "colophon"
 )

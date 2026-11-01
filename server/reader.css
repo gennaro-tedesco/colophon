@@ -429,6 +429,10 @@ body.sidebar-collapsed .reader-sidebar {
 .reader-search-toggle.open {
   color: var(--mauve);
 }
+.reader-search-toggle svg {
+  width: var(--reader-reader-search-toggle-svg-width);
+  height: var(--reader-reader-search-toggle-svg-height);
+}
 .reader-menu-toggle {
   display: inline-flex;
   align-items: center;

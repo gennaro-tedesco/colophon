@@ -39,7 +39,6 @@ const Settings = Object.freeze({
   ]),
   sidebarWidthKey: "sidebar:width",
   sidebarLastKey: "sidebar:last-width",
-  viewsHeightKey: "views:height",
   scanShowDelay: 400,
   scanMinimumDuration: 500,
   bookRenderDelay: 80,
