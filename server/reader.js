@@ -1692,10 +1692,8 @@
       .forEach(function (section) {
         section
           .querySelector(".group-header")
-          .addEventListener("click", function (e) {
-            if (!e.target.closest("a")) {
-              section.classList.toggle("open");
-            }
+          .addEventListener("click", function () {
+            section.classList.toggle("open");
           });
       });
 
