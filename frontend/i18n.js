@@ -14,6 +14,7 @@
           about: "About",
           version: "Version:",
           language: "Language",
+          settings: "Settings",
         },
         sidebar: {
           collapse: "Collapse sidebar",
@@ -115,10 +116,11 @@
           about: "\u00dcber",
           version: "Version:",
           language: "Sprache",
+          settings: "Einstellungen",
         },
         sidebar: {
-          collapse: "Seitenleiste einblenden",
-          expand: "Seitenleiste ausblenden",
+          collapse: "Seitenleiste ausblenden",
+          expand: "Seitenleiste einblenden",
         },
         search: {
           placeholder: "Titel, Autoren suchen\u2026",
@@ -216,6 +218,7 @@
           about: "Informazioni",
           version: "Versione:",
           language: "Lingua",
+          settings: "Impostazioni",
         },
         sidebar: {
           collapse: "Comprimi barra laterale",
@@ -273,7 +276,7 @@
           libraryFolder: "Cartella libreria",
           noFolderSelected: "Nessuna cartella selezionata",
           uiFont: "Font interfaccia",
-          uiFontSize: "Dimensione font",
+          uiFontSize: "Dimensione font interfaccia",
           save: "Salva",
           systemDefault: "Predefinito di sistema",
         },
@@ -317,6 +320,7 @@
           about: "\u5173\u4e8e",
           version: "\u7248\u672c\uff1a",
           language: "\u8bed\u8a00",
+          settings: "\u8bbe\u7f6e",
         },
         sidebar: {
           collapse: "\u6536\u8d77\u4fa7\u8fb9\u680f",
@@ -324,7 +328,7 @@
         },
         search: {
           placeholder: "\u641c\u7d22\u6807\u9898\u3001\u4f5c\u8005\u2026",
-          placeholderScoped: "\u641c\u7d22 {{scope}}",
+          placeholderScoped: "\u641c\u7d22{{scope}}",
           clear: "\u6e05\u9664\u641c\u7d22",
         },
         library: {
