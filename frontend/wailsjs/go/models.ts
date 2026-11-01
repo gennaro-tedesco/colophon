@@ -405,7 +405,6 @@ export namespace tls {
 	    OCSPResponse: number[];
 	    TLSUnique: number[];
 	    ECHAccepted: boolean;
-	    HelloRetryRequest: boolean;
 	
 	    static createFrom(source: any = {}) {
 	        return new ConnectionState(source);
@@ -427,7 +426,6 @@ export namespace tls {
 	        this.OCSPResponse = source["OCSPResponse"];
 	        this.TLSUnique = source["TLSUnique"];
 	        this.ECHAccepted = source["ECHAccepted"];
-	        this.HelloRetryRequest = source["HelloRetryRequest"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {
@@ -472,12 +470,12 @@ export namespace url {
 	    User?: any;
 	    Host: string;
 	    Path: string;
-	    Fragment: string;
-	    RawQuery: string;
 	    RawPath: string;
-	    RawFragment: string;
-	    ForceQuery: boolean;
 	    OmitHost: boolean;
+	    ForceQuery: boolean;
+	    RawQuery: string;
+	    Fragment: string;
+	    RawFragment: string;
 	
 	    static createFrom(source: any = {}) {
 	        return new URL(source);
@@ -490,12 +488,12 @@ export namespace url {
 	        this.User = this.convertValues(source["User"], null);
 	        this.Host = source["Host"];
 	        this.Path = source["Path"];
-	        this.Fragment = source["Fragment"];
-	        this.RawQuery = source["RawQuery"];
 	        this.RawPath = source["RawPath"];
-	        this.RawFragment = source["RawFragment"];
-	        this.ForceQuery = source["ForceQuery"];
 	        this.OmitHost = source["OmitHost"];
+	        this.ForceQuery = source["ForceQuery"];
+	        this.RawQuery = source["RawQuery"];
+	        this.Fragment = source["Fragment"];
+	        this.RawFragment = source["RawFragment"];
 	    }
 	
 		convertValues(a: any, classs: any, asMap: boolean = false): any {

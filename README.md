@@ -15,7 +15,12 @@ Colophone is your ebook library made awesome: browse your tags nice and clean, s
 
 ## Installation
 
-Install from the [releases page](https://github.com/gennaro-tedesco/metabrowser/releases) choosing your architecture.
+Install from the [releases page](https://github.com/gennaro-tedesco/metabrowser/releases) choosing your architecture, or equivalently, for local development:
+```bash
+make build
+
+make install
+```
 
 ## Features
 
