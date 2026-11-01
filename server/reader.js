@@ -195,6 +195,7 @@
     var searchHideTimer = null;
     var frameCloseBound = false;
     var frameScrollBound = false;
+    var frameWheelBound = false;
     var frameSetupDoc = null;
     var progressFrame = 0;
     var themeFrame = 0;
@@ -666,7 +667,31 @@
       if (sidebarToggle) sidebarToggle.click();
     }
 
+    function adjustReaderFontSize(direction) {
+      var currentSize = parseFloat(sizeSlider.value);
+      var nextSize = Math.min(
+        parseFloat(sizeSlider.max),
+        Math.max(
+          parseFloat(sizeSlider.min),
+          currentSize + direction * parseFloat(sizeSlider.step),
+        ),
+      );
+      if (nextSize === currentSize) return;
+      sizeSlider.value = nextSize;
+      sizeSlider.dispatchEvent(new Event("input"));
+      sizeSlider.dispatchEvent(new Event("change"));
+    }
+
     function handleReaderShortcut(event) {
+      if (
+        event.ctrlKey &&
+        !event.altKey &&
+        (event.key === "+" || event.key === "=" || event.key === "-")
+      ) {
+        event.preventDefault();
+        adjustReaderFontSize(event.key === "-" ? -1 : 1);
+        return;
+      }
       if (
         (event.metaKey || event.ctrlKey) &&
         !event.altKey &&
@@ -766,6 +791,24 @@
       if (!doc) return;
       var win = doc.defaultView;
       if (win) win.addEventListener("keydown", handleReaderShortcut);
+    }
+
+    function bindFrameWheel() {
+      if (frameWheelBound) return;
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      var win = doc.defaultView;
+      if (!win) return;
+      win.addEventListener(
+        "wheel",
+        function (event) {
+          if (!event.deltaY) return;
+          event.preventDefault();
+          win.scrollBy({ top: event.deltaY });
+        },
+        { passive: false },
+      );
+      frameWheelBound = true;
     }
 
     function updateSearchUI() {
@@ -1343,6 +1386,7 @@
       frameSetupDoc = doc;
       frameCloseBound = false;
       frameScrollBound = false;
+      frameWheelBound = false;
       applyTheme();
       var scrollbarWidth =
         frame.contentWindow.innerWidth -
@@ -1355,6 +1399,7 @@
       bindFrameNavHover();
       bindFrameScroll();
       bindFrameShortcuts();
+      bindFrameWheel();
       bindFrameChapterLinks();
       requestAnimationFrame(function () {
         requestAnimationFrame(function () {
