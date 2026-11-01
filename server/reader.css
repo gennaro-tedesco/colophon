@@ -27,6 +27,16 @@ body {
   grid-template-columns: var(--reader-body-grid-template-columns);
   overflow: hidden;
 }
+body.reader-zen {
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-rows: minmax(0, 1fr);
+}
+body.reader-zen .reader-sidebar,
+body.reader-zen .reader-sidebar-resizer,
+body.reader-zen .reader-library-action,
+body.reader-zen .reader-toolbar {
+  display: none;
+}
 .reader-sidebar {
   background: var(--mantle);
   overflow: hidden;
