@@ -1914,6 +1914,24 @@
             display: false,
           },
           tooltip: {
+            titleFont: function () {
+              return {
+                size: parseFloat(
+                  getComputedStyle(document.documentElement).getPropertyValue(
+                    "--fs-base",
+                  ),
+                ),
+              };
+            },
+            bodyFont: function () {
+              return {
+                size: parseFloat(
+                  getComputedStyle(document.documentElement).getPropertyValue(
+                    "--fs-base",
+                  ),
+                ),
+              };
+            },
             callbacks: {
               label(context) {
                 const value = context.raw;

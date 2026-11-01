@@ -216,7 +216,7 @@ body.sidebar-collapsed .reader-sidebar {
   margin-bottom: var(--reader-group-section-margin-bottom);
 }
 .reader-toc > .group-section {
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
 }
 .group-items .group-section {
   font-size: 0.85em;
@@ -236,7 +236,7 @@ body.sidebar-collapsed .reader-sidebar {
 }
 .group-header > span:first-child,
 .group-header-link {
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
 }
 .group-header:hover {
   color: var(--blue);
@@ -271,7 +271,7 @@ body.sidebar-collapsed .reader-sidebar {
   padding: var(--reader-group-item-padding);
   cursor: pointer;
   color: var(--subtext0);
-  font-size: var(--fs-md);
+  font-size: var(--fs-base);
   transition: color var(--motion-fast),
     background var(--motion-fast);
   border-left: var(--reader-group-item-border-left);

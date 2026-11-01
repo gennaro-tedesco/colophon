@@ -1708,7 +1708,13 @@
     window.openPreferences = function () {
       window.location.href = "/?openPrefs=1";
     };
-    onConfigApplied = applyTheme;
+    onConfigApplied = function () {
+      if (!localStorage.getItem(readerStorageKey("size"))) {
+        size = settingValue("--fs-base");
+        sizeSlider.value = size.replace("px", "");
+      }
+      applyTheme();
+    };
   }
 
   if (document.readyState === "loading") {
