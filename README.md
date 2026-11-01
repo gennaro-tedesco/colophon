@@ -16,6 +16,7 @@ Colophone is your ebook library made awesome: browse your tags nice and clean, s
 ## Installation
 
 Install from the [releases page](https://github.com/gennaro-tedesco/metabrowser/releases) choosing your architecture, or equivalently, for local development:
+
 ```bash
 make build
 
@@ -32,7 +33,7 @@ Browse your library by tags, series, authors, language. Tap and toggle tag cards
 
 ### Stats view
 
-Visualise your library views interactively
+Visualise your library statistics interactively
 
 <img width="1402" height="629" alt="Image" src="https://github.com/user-attachments/assets/7a9ea21c-3d12-418e-8152-34c0505c6854" />
 

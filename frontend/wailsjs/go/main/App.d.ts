@@ -4,25 +4,13 @@ import {main} from '../models';
 import {model} from '../models';
 import {http} from '../models';
 
-export function AddBooksToView(arg1:string,arg2:Array<string>):Promise<void>;
-
-export function CreateView(arg1:string):Promise<main.View>;
-
-export function DeleteView(arg1:string):Promise<void>;
-
 export function GetConfig():Promise<main.Config>;
 
 export function GetLibrary():Promise<model.Library>;
 
-export function GetViews():Promise<Array<main.View>>;
-
 export function ListFonts():Promise<Array<string>>;
 
 export function PickAndScan():Promise<model.Library>;
-
-export function RemoveBookFromView(arg1:string,arg2:string):Promise<void>;
-
-export function RenameView(arg1:string,arg2:string):Promise<void>;
 
 export function Rescan():Promise<void>;
 
