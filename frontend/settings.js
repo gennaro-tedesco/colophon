@@ -52,7 +52,7 @@ const Settings = Object.freeze({
   lastReadKey: "lastRead",
   uiFontRange: Object.freeze({ min: 14, max: 28, step: 1 }),
   readerLineHeightRange: Object.freeze({ min: 1.2, max: 2.4, step: 0.1 }),
-  readerFontRange: Object.freeze({ min: 20, max: 48, step: 1 }),
+  readerFontRange: Object.freeze({ min: 14, max: 48, step: 1 }),
   readerPaddingRange: Object.freeze({ min: 32, max: 160, step: 4 }),
   readerProgressDelay: 150,
   readerTocHoverDelay: 500,
@@ -85,10 +85,10 @@ function readerStorageKey(name) {
 }
 
 function readerPreference(name) {
-  return (
-    localStorage.getItem(readerStorageKey(name)) ||
-    settingValue(Settings.readerDefaults[name])
-  );
+  const storedValue = localStorage.getItem(readerStorageKey(name));
+  if (storedValue) return storedValue;
+  if (name === "size") return settingValue("--fs-base");
+  return settingValue(Settings.readerDefaults[name]);
 }
 
 let rootComputedStyle = null;

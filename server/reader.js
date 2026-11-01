@@ -1690,23 +1690,11 @@
     document
       .querySelectorAll(".reader-toc .group-section")
       .forEach(function (section) {
-        var hoverTimer = null;
         section
           .querySelector(".group-header")
-          .addEventListener("click", function (e) {
-            if (!e.target.closest("a")) {
-              section.classList.toggle("open");
-            }
+          .addEventListener("click", function () {
+            section.classList.toggle("open");
           });
-        section.addEventListener("mouseenter", function () {
-          hoverTimer = setTimeout(function () {
-            section.classList.add("hover-open");
-          }, Settings.readerTocHoverDelay);
-        });
-        section.addEventListener("mouseleave", function () {
-          clearTimeout(hoverTimer);
-          section.classList.remove("hover-open");
-        });
       });
 
     localStorage.setItem(
@@ -1720,7 +1708,13 @@
     window.openPreferences = function () {
       window.location.href = "/?openPrefs=1";
     };
-    onConfigApplied = applyTheme;
+    onConfigApplied = function () {
+      if (!localStorage.getItem(readerStorageKey("size"))) {
+        size = settingValue("--fs-base");
+        sizeSlider.value = size.replace("px", "");
+      }
+      applyTheme();
+    };
   }
 
   if (document.readyState === "loading") {
