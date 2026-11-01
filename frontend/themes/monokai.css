@@ -1,0 +1,30 @@
+[data-theme="monokai"] {
+  --crust: #30312a;
+  --mantle: #3e383a;
+  --base: #262721;
+  --surface0: #414245;
+  --surface1: #75715e;
+  --surface2: #515b70;
+  --overlay0: #4f5466;
+  --overlay1: #ced1d4;
+  --overlay2: #ced1d4;
+  --subtext0: #ced1d4;
+  --subtext1: #ced1d4;
+  --text: #ced1d4;
+  --lavender: #66d9ef;
+  --blue: #5594ec;
+  --sapphire: #a6a7d0;
+  --sky: #a1efe4;
+  --teal: #a1efe4;
+  --green: #a6e22d;
+  --yellow: #e6db74;
+  --peach: #fd9720;
+  --maroon: #e73c50;
+  --red: #e73c50;
+  --mauve: #ae81ff;
+  --pink: #ae81ff;
+  --flamingo: #fd9720;
+  --rosewater: #ced1d4;
+  --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
+}
