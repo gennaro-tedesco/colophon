@@ -1,0 +1,31 @@
+:root,
+[data-theme="sol-dark"] {
+  --crust: #002932;
+  --mantle: #002d38;
+  --base: #001e28;
+  --surface0: #073541;
+  --surface1: #586e74;
+  --surface2: #073541;
+  --overlay0: #647a82;
+  --overlay1: #073541;
+  --overlay2: #002d38;
+  --subtext0: #586e74;
+  --subtext1: #9fabad;
+  --text: #9fabad;
+  --lavender: #b28600;
+  --blue: #278bd3;
+  --sapphire: #6d72c5;
+  --sky: #2aa298;
+  --teal: #2aa298;
+  --green: #859900;
+  --yellow: #b28600;
+  --peach: #ca4c16;
+  --maroon: #dc312e;
+  --red: #dc312e;
+  --mauve: #d33682;
+  --pink: #d33682;
+  --flamingo: #ca4c16;
+  --rosewater: #9fabad;
+  --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
+}

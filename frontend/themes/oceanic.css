@@ -1,0 +1,30 @@
+[data-theme="oceanic"] {
+  --crust: #1c2c30;
+  --mantle: #314549;
+  --base: #25363b;
+  --surface0: #355058;
+  --surface1: #7c9ead;
+  --surface2: #354a51;
+  --overlay0: #3e5f64;
+  --overlay1: #354a51;
+  --overlay2: #314549;
+  --subtext0: #7c9ead;
+  --subtext1: #b0bec5;
+  --text: #b0bec5;
+  --lavender: #11bba3;
+  --blue: #82aaff;
+  --sapphire: #b0c9ff;
+  --sky: #89ddff;
+  --teal: #89ddff;
+  --green: #c3e88d;
+  --yellow: #ffcb6b;
+  --peach: #f78c6c;
+  --maroon: #f07178;
+  --red: #f07178;
+  --mauve: #c792ea;
+  --pink: #c792ea;
+  --flamingo: #f78c6c;
+  --rosewater: #b0bec5;
+  --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
+}

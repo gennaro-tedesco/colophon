@@ -10,7 +10,7 @@ const ScriptPath = "/contract.js"
 const ResourcesPath = "/resources.css"
 const ThemePath = "/theme.css"
 const ThemesPath = "/themes/"
-const DefaultTheme = "solarized-dark"
+const DefaultTheme = "sol-dark"
 const ReaderStoragePrefix = "reader:"
 
 var ReaderDefaults = map[string]string{
@@ -48,17 +48,13 @@ var Events = map[string]string{
 }
 
 var Themes = []Theme{
-	{DefaultTheme, "Solarized Dark"},
-	{"solarized-light", "Solarized Light"},
-	{"catppuccin-mocha", "Catppuccin Mocha"},
-	{"catppuccin-latte", "Catppuccin Latte"},
-	{"nord", "Nord"},
-	{"everforest", "Everforest"},
-	{"tokyonight", "Tokyo Night"},
-	{"kanagawa", "Kanagawa"},
-	{"rose-pine", "Rose Pine"},
-	{"ayu-mirage", "Ayu Mirage"},
-	{"iceberg-light", "Iceberg Light"},
+	{DefaultTheme, "Sol Dark"},
+	{"sol-light", "Sol Light"},
+	{"oceanic", "Oceanic"},
+	{"palenight", "Palenight"},
+	{"lighter", "Lighter"},
+	{"dracula", "Dracula"},
+	{"monokai", "Monokai"},
 }
 
 var Groups = []Group{

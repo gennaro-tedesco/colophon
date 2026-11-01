@@ -1,0 +1,30 @@
+[data-theme="lighter"] {
+  --crust: #ffffff;
+  --mantle: #e7e7e8;
+  --base: #fafafa;
+  --surface0: #d3e1e8;
+  --surface1: #94a7b0;
+  --surface2: #e7e7e8;
+  --overlay0: #d2d4d5;
+  --overlay1: #e7e7e8;
+  --overlay2: #e7e7e8;
+  --subtext0: #94a7b0;
+  --subtext1: #546e7a;
+  --text: #546e7a;
+  --lavender: #00bcd4;
+  --blue: #6182b8;
+  --sapphire: #8796b0;
+  --sky: #39adb5;
+  --teal: #39adb5;
+  --green: #91b859;
+  --yellow: #f6a434;
+  --peach: #f76d47;
+  --maroon: #e53935;
+  --red: #e53935;
+  --mauve: #7c4dff;
+  --pink: #7c4dff;
+  --flamingo: #f76d47;
+  --rosewater: #546e7a;
+  --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
+  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
+}
