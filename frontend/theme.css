@@ -468,6 +468,11 @@
   --reader-reader-toolbar-heading-gap: 10px;
   --reader-reader-toolbar-heading-line-height: 1.25;
   --reader-reader-toolbar-padding: 18px 24px;
+  --reader-reader-toolbar-padding-right: calc(
+    var(--reader-reader-library-action-right) + var(--fs-md) +
+      var(--reader-reader-library-action-padding) +
+      var(--reader-reader-library-action-padding) + 18px
+  );
 }
 
 :root {

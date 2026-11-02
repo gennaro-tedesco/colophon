@@ -331,6 +331,7 @@ body.sidebar-collapsed .reader-sidebar {
   align-items: center;
   gap: var(--reader-reader-toolbar-gap);
   padding: var(--reader-reader-toolbar-padding);
+  padding-right: var(--reader-reader-toolbar-padding-right);
   border-bottom: var(--reader-reader-toolbar-border-bottom);
   background: var(--base);
 }

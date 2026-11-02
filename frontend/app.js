@@ -948,26 +948,31 @@
     }
   });
 
-  (function initContinueReading() {
-    continueReading.disabled = true;
+  function getLastRead() {
     try {
-      var data = JSON.parse(localStorage.getItem(Settings.lastReadKey));
-      if (data && data.path) {
-        continueReading.title = t("books.continueReading", {
-          title: data.title || "",
-        });
-        continueReading.disabled = false;
-        continueReading.addEventListener("click", function () {
-          openReaderURL(
-            Settings.routes.read +
-              data.path +
-              "?chapter=" +
-              (data.chapter || 0),
-          );
-        });
-      }
-    } catch (e) {}
-  })();
+      return JSON.parse(localStorage.getItem(Settings.lastReadKey));
+    } catch (e) {
+      return null;
+    }
+  }
+
+  function syncContinueReading() {
+    var data = getLastRead();
+    continueReading.disabled = !(data && data.path);
+    continueReading.title =
+      data && data.path
+        ? t("books.continueReading", { title: data.title || "" })
+        : "";
+  }
+
+  syncContinueReading();
+  continueReading.addEventListener("click", function () {
+    var data = getLastRead();
+    if (!data || !data.path) return;
+    openReaderURL(
+      Settings.routes.read + data.path + "?chapter=" + (data.chapter || 0),
+    );
+  });
 
   search.addEventListener("input", () => {
     searchClear.classList.toggle("visible", search.value.length > 0);
@@ -1162,6 +1167,12 @@
       window.location.href = url;
       return;
     }
+    var targetURL = new URL(url, window.location.href).href;
+    if (readerOverlayFrame.contentWindow.location.href === targetURL) {
+      readerOverlay.classList.add("visible");
+      readerOverlayFrame.contentWindow.focus();
+      return;
+    }
     readerOverlayLoading = true;
     readerOverlayFrame.src = url;
   }
@@ -1181,7 +1192,7 @@
 
   window.closeReader = function () {
     readerOverlay.classList.remove("visible");
-    readerOverlayFrame.src = "about:blank";
+    syncContinueReading();
     window.focus();
   };
 
