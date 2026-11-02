@@ -3,6 +3,8 @@ package server
 import (
 	"archive/zip"
 	"bytes"
+	"container/list"
+	"context"
 	_ "embed"
 	"encoding/json"
 	"errors"
@@ -40,6 +42,9 @@ var readerShellTmpl = template.Must(template.New("reader-shell").Parse(readerShe
 const (
 	coverCacheMaxAgeSeconds       = 86400
 	readerAssetCacheMaxAgeSeconds = 3600
+	readerCacheCapacity           = 8
+	readerSearchMaxResults        = 1000
+	maxReaderEntrySize            = 32 << 20
 )
 
 type readerShellData struct {
@@ -72,7 +77,6 @@ type readerChapterMeta struct {
 type chapterDoc struct {
 	Path  string
 	Title string
-	Text  string
 }
 
 type readerBookData struct {
@@ -88,34 +92,56 @@ type readerSearchMatch struct {
 
 type readerCache struct {
 	mu      sync.RWMutex
-	books   map[string]readerBookData
+	books   map[string]*readerCacheEntry
 	loading map[string]chan struct{}
-	errors  map[string]error
+	lru     *list.List
 }
 
-func NewHandler(root string, lib model.Library, fonts []string, theme string) http.Handler {
+type readerCacheEntry struct {
+	book       readerBookData
+	texts      []string
+	textLoaded []bool
+	element    *list.Element
+	pins       int
+}
+
+type Handler struct {
+	mux   http.Handler
+	mu    sync.RWMutex
+	theme string
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
+}
+
+func (h *Handler) SetTheme(theme string) {
+	h.mu.Lock()
+	h.theme = theme
+	h.mu.Unlock()
+}
+
+func (h *Handler) currentTheme() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.theme
+}
+
+func NewHandler(root string, lib model.Library, fonts []string, theme string) *Handler {
 	titleIndex := make(map[string]string, len(lib.Books))
 	authorIndex := make(map[string]string, len(lib.Books))
 	cache := &readerCache{
-		books:   make(map[string]readerBookData),
+		books:   make(map[string]*readerCacheEntry),
 		loading: make(map[string]chan struct{}),
-		errors:  make(map[string]error),
+		lru:     list.New(),
 	}
 	for _, b := range lib.Books {
 		titleIndex[b.Path] = b.Title
 		authorIndex[b.Path] = strings.Join(b.Authors, ", ")
 	}
 
+	h := &Handler{theme: theme}
 	mux := http.NewServeMux()
-	mux.HandleFunc(contract.ScriptPath, contract.ServeScript)
-	mux.HandleFunc(contract.ResourcesPath, contract.ServeResources)
-
-	mux.HandleFunc(contract.Routes["library"], func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(lib); err != nil {
-			return
-		}
-	})
 
 	mux.HandleFunc(contract.Routes["fonts"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -145,14 +171,16 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 			http.NotFound(w, r)
 			return
 		}
-		book, err := cache.load(absEpub)
+		matches, err := cache.search(r.Context(), absEpub, strings.TrimSpace(r.URL.Query().Get("q")))
 		if err != nil {
+			if errors.Is(err, context.Canceled) {
+				return
+			}
 			http.NotFound(w, r)
 			return
 		}
-		query := strings.TrimSpace(r.URL.Query().Get("q"))
 		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(searchReaderBook(book, query)); err != nil {
+		if err := json.NewEncoder(w).Encode(matches); err != nil {
 			return
 		}
 	})
@@ -217,11 +245,12 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 		case "chapter":
 			serveChapterDocument(w, r, absEpub, epubRel, cache)
 		default:
-			serveReaderShell(w, r, absEpub, epubRel, titleIndex[epubRel], authorIndex[epubRel], cache, theme)
+			serveReaderShell(w, r, absEpub, epubRel, titleIndex[epubRel], authorIndex[epubRel], cache, h.currentTheme())
 		}
 	})
 
-	return mux
+	h.mux = mux
+	return h
 }
 
 func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, title, meta string, cache *readerCache, theme string) {
@@ -316,9 +345,10 @@ func serveChapterDocument(w http.ResponseWriter, r *http.Request, absEpub, epubR
 		return
 	}
 	defer zr.Close()
+	entries := zipEntryIndex(&zr.Reader)
 
 	chapterPath := book.Spine[chapterIndex]
-	chapterHTML, err := readZipEntry(&zr.Reader, chapterPath)
+	chapterHTML, err := readZipEntry(entries, chapterPath)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -335,7 +365,7 @@ func serveChapterDocument(w http.ResponseWriter, r *http.Request, absEpub, epubR
 		body := findHTMLNode(doc, "body")
 		if body != nil {
 			for _, ci := range contIndices {
-				contHTML, err := readZipEntry(&zr.Reader, book.Spine[ci])
+				contHTML, err := readZipEntry(entries, book.Spine[ci])
 				if err != nil {
 					continue
 				}
@@ -473,25 +503,22 @@ func cleanPathSegment(value string) string {
 	return cleaned
 }
 
-func loadChapterMetadata(r *zip.Reader, spine []string, tocLabels map[string]string) []chapterDoc {
+func loadChapterMetadata(entries zipEntries, spine []string, tocLabels map[string]string) []chapterDoc {
 	chapters := make([]chapterDoc, 0, len(spine))
 	for i, chapterPath := range spine {
 		title := ""
-		text := ""
 		if tocLabels != nil {
 			title = normalizeWhitespace(tocLabels[chapterPath])
 		}
-		data, err := readZipEntry(r, chapterPath)
-		if err == nil {
-			if title == "" {
+		if title == "" && entries != nil {
+			data, err := readZipEntry(entries, chapterPath)
+			if err == nil {
 				title = extractChapterTitle(data)
 			}
-			text = extractChapterText(data)
 		}
 		chapters = append(chapters, chapterDoc{
 			Path:  chapterPath,
 			Title: fallbackChapterTitle(title, i),
-			Text:  text,
 		})
 	}
 	return chapters
@@ -499,77 +526,51 @@ func loadChapterMetadata(r *zip.Reader, spine []string, tocLabels map[string]str
 
 func (c *readerCache) load(absEpub string) (readerBookData, error) {
 	for {
-		c.mu.RLock()
-		book, ok := c.books[absEpub]
+		c.mu.Lock()
+		entry, ok := c.books[absEpub]
 		if ok {
-			c.mu.RUnlock()
+			c.lru.MoveToFront(entry.element)
+			book := entry.book
+			c.mu.Unlock()
 			return book, nil
 		}
-		loadErr := c.errors[absEpub]
 		wait := c.loading[absEpub]
-		c.mu.RUnlock()
 		if wait == nil {
-			if loadErr != nil {
-				return readerBookData{}, loadErr
+			wait = make(chan struct{})
+			c.loading[absEpub] = wait
+			c.mu.Unlock()
+			book, err := loadReaderBookData(absEpub)
+			c.mu.Lock()
+			delete(c.loading, absEpub)
+			if err == nil {
+				entry = &readerCacheEntry{book: book, texts: make([]string, len(book.Spine)), textLoaded: make([]bool, len(book.Spine))}
+				entry.element = c.lru.PushFront(absEpub)
+				c.books[absEpub] = entry
+				c.evict(entry)
 			}
-			break
+			close(wait)
+			c.mu.Unlock()
+			return book, err
 		}
-		<-wait
-	}
-
-	c.mu.Lock()
-	if book, ok := c.books[absEpub]; ok {
-		c.mu.Unlock()
-		return book, nil
-	}
-	if wait, ok := c.loading[absEpub]; ok {
 		c.mu.Unlock()
 		<-wait
-		c.mu.RLock()
-		book, ok := c.books[absEpub]
-		loadErr := c.errors[absEpub]
-		c.mu.RUnlock()
-		if ok {
-			return book, nil
-		}
-		if loadErr != nil {
-			return readerBookData{}, loadErr
-		}
-		return readerBookData{}, errors.New("reader cache load failed")
 	}
-	wait := make(chan struct{})
-	c.loading[absEpub] = wait
-	c.mu.Unlock()
-
-	book, err := loadReaderBookData(absEpub)
-
-	c.mu.Lock()
-	delete(c.loading, absEpub)
-	if err == nil {
-		delete(c.errors, absEpub)
-		c.books[absEpub] = book
-	} else {
-		c.errors[absEpub] = err
-	}
-	close(wait)
-	c.mu.Unlock()
-
-	return book, err
 }
 
 func loadReaderBookData(absEpub string) (readerBookData, error) {
-	readerData, err := scanner.ParseReaderData(absEpub)
-	if err != nil {
-		return readerBookData{}, err
-	}
-
 	zr, err := zip.OpenReader(absEpub)
 	if err != nil {
 		return readerBookData{}, err
 	}
 	defer zr.Close()
 
-	chapters := loadChapterMetadata(&zr.Reader, readerData.Spine, flattenTOCLabels(readerData.TOC))
+	readerData, err := scanner.ParseReaderDataReader(zr)
+	if err != nil {
+		return readerBookData{}, err
+	}
+
+	labels := flattenTOCLabels(readerData.TOC)
+	chapters := loadChapterMetadata(zipEntryIndex(&zr.Reader), readerData.Spine, labels)
 
 	return readerBookData{
 		Spine:    readerData.Spine,
@@ -592,29 +593,113 @@ func fallbackTOC(entries []scanner.TOCEntry, spine []string, chapters []chapterD
 	return fallback
 }
 
-func searchReaderBook(book readerBookData, query string) []readerSearchMatch {
-	query = normalizeWhitespace(query)
-	if query == "" {
-		return []readerSearchMatch{}
+func (c *readerCache) search(ctx context.Context, absEpub, query string) ([]readerSearchMatch, error) {
+	entry, release, err := c.pin(absEpub)
+	if err != nil {
+		return nil, err
 	}
-	loweredQuery := strings.ToLower(query)
+	defer release()
+	query = strings.ToLower(normalizeWhitespace(query))
+	if query == "" {
+		return []readerSearchMatch{}, nil
+	}
+	zr, err := zip.OpenReader(absEpub)
+	if err != nil {
+		return nil, err
+	}
+	defer zr.Close()
+	entries := zipEntryIndex(&zr.Reader)
 	var matches []readerSearchMatch
-	for chapterIndex, chapter := range book.Chapters {
-		loweredText := strings.ToLower(chapter.Text)
+	for i := range entry.book.Spine {
+		if err := ctx.Err(); err != nil {
+			return nil, err
+		}
+		text, err := c.chapterText(entry, entries, i)
+		if err != nil {
+			continue
+		}
 		offset := 0
-		for offset < len(loweredText) {
-			matchIndex := strings.Index(loweredText[offset:], loweredQuery)
-			if matchIndex == -1 {
+		for offset < len(text) {
+			index := strings.Index(text[offset:], query)
+			if index < 0 {
 				break
 			}
-			matches = append(matches, readerSearchMatch{
-				Chapter: chapterIndex,
-				Title:   chapter.Title,
-			})
-			offset += matchIndex + len(loweredQuery)
+			matches = append(matches, readerSearchMatch{Chapter: i, Title: entry.book.Chapters[i].Title})
+			if len(matches) == readerSearchMaxResults {
+				return matches, nil
+			}
+			offset += index + len(query)
 		}
 	}
-	return matches
+	return matches, nil
+}
+
+func (c *readerCache) chapterText(entry *readerCacheEntry, entries zipEntries, index int) (string, error) {
+	c.mu.Lock()
+	if index >= len(entry.texts) {
+		c.mu.Unlock()
+		return "", errors.New("chapter index out of range")
+	}
+	if entry.textLoaded[index] {
+		text := entry.texts[index]
+		c.mu.Unlock()
+		return text, nil
+	}
+	chapterPath := entry.book.Spine[index]
+	c.mu.Unlock()
+
+	data, err := readZipEntry(entries, chapterPath)
+	if err != nil {
+		return "", err
+	}
+	_, text := extractChapterData(data)
+	text = strings.ToLower(text)
+
+	c.mu.Lock()
+	entry.texts[index] = text
+	entry.textLoaded[index] = true
+	c.mu.Unlock()
+	return text, nil
+}
+
+func (c *readerCache) pin(absEpub string) (*readerCacheEntry, func(), error) {
+	for {
+		if _, err := c.load(absEpub); err != nil {
+			return nil, nil, err
+		}
+		c.mu.Lock()
+		entry, ok := c.books[absEpub]
+		if ok {
+			entry.pins++
+			c.lru.MoveToFront(entry.element)
+			c.mu.Unlock()
+			return entry, func() {
+				c.mu.Lock()
+				entry.pins--
+				c.evict(nil)
+				c.mu.Unlock()
+			}, nil
+		}
+		c.mu.Unlock()
+	}
+}
+
+func (c *readerCache) evict(except *readerCacheEntry) {
+	for c.lru.Len() > readerCacheCapacity {
+		for candidate := c.lru.Back(); candidate != nil; candidate = candidate.Prev() {
+			entry := c.books[candidate.Value.(string)]
+			if entry == except || entry.pins > 0 {
+				continue
+			}
+			delete(c.books, candidate.Value.(string))
+			c.lru.Remove(candidate)
+			break
+		}
+		if c.lru.Len() <= readerCacheCapacity {
+			return
+		}
+		return
+	}
 }
 
 func flattenTOCLabels(entries []scanner.TOCEntry) map[string]string {
@@ -817,32 +902,38 @@ func extractChapterTitle(chapterHTML []byte) string {
 	if err != nil {
 		return ""
 	}
+	return chapterTitle(doc)
+}
 
-	if title := strings.TrimSpace(nodeText(findHTMLNode(doc, "title"))); title != "" {
-		return normalizeWhitespace(title)
+func extractChapterData(chapterHTML []byte) (string, string) {
+	doc, err := xhtml.Parse(bytes.NewReader(chapterHTML))
+	if err != nil {
+		return "", ""
 	}
+	title := chapterTitle(doc)
+	body := findHTMLNode(doc, "body")
+	if body == nil {
+		return title, ""
+	}
+	return title, normalizeWhitespace(nodeText(body))
+}
 
-	for _, tag := range []string{"h1", "h2", "h3"} {
-		if node := findHTMLNode(doc, tag); node != nil {
-			if title := normalizeWhitespace(nodeText(node)); title != "" {
-				return title
+func chapterTitle(doc *xhtml.Node) string {
+	var title string
+	if documentTitle := strings.TrimSpace(nodeText(findHTMLNode(doc, "title"))); documentTitle != "" {
+		title = normalizeWhitespace(documentTitle)
+	} else {
+		for _, tag := range []string{"h1", "h2", "h3"} {
+			if node := findHTMLNode(doc, tag); node != nil {
+				if heading := normalizeWhitespace(nodeText(node)); heading != "" {
+					title = heading
+					break
+				}
 			}
 		}
 	}
 
-	return ""
-}
-
-func extractChapterText(chapterHTML []byte) string {
-	doc, err := xhtml.Parse(bytes.NewReader(chapterHTML))
-	if err != nil {
-		return ""
-	}
-	body := findHTMLNode(doc, "body")
-	if body == nil {
-		return ""
-	}
-	return normalizeWhitespace(nodeText(body))
+	return title
 }
 
 func injectReaderBaseline(doc *xhtml.Node) {
@@ -970,23 +1061,39 @@ func rewriteAssetURL(rawValue, epubRel, chapterPath string) string {
 	return rewritten
 }
 
-func readZipEntry(r *zip.Reader, entry string) ([]byte, error) {
+type zipEntries map[string]*zip.File
+
+func zipEntryIndex(r *zip.Reader) zipEntries {
+	entries := make(zipEntries, len(r.File))
 	for _, f := range r.File {
-		if f.Name != entry {
-			continue
+		if _, exists := entries[f.Name]; !exists {
+			entries[f.Name] = f
 		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer rc.Close()
-		data, err := io.ReadAll(rc)
-		if err != nil {
-			return nil, err
-		}
-		return data, nil
 	}
-	return nil, errors.New("entry not found")
+	return entries
+}
+
+func readZipEntry(entries zipEntries, entry string) ([]byte, error) {
+	f, ok := entries[entry]
+	if !ok {
+		return nil, errors.New("entry not found")
+	}
+	if f.CompressedSize64 > maxReaderEntrySize || f.UncompressedSize64 > maxReaderEntrySize {
+		return nil, errors.New("entry exceeds size limit")
+	}
+	rc, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(io.LimitReader(rc, maxReaderEntrySize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxReaderEntrySize {
+		return nil, errors.New("entry exceeds size limit")
+	}
+	return data, nil
 }
 
 func findHTMLNode(node *xhtml.Node, name string) *xhtml.Node {

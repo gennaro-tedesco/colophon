@@ -1,7 +1,10 @@
 package scanner
 
 import (
+	"errors"
+	"fmt"
 	"io/fs"
+	"os"
 	"path/filepath"
 	"runtime"
 	"sort"
@@ -18,18 +21,31 @@ type ScanResult struct {
 	Book    model.Book
 }
 
+type CacheEntry struct {
+	ModTime time.Time  `json:"modTime"`
+	Book    model.Book `json:"book"`
+}
+
 type fileInfo struct {
 	path    string
 	modTime time.Time
 }
 
-// Stream walks root for EPUB files and sends parsed results to out as they complete.
-// It closes out when all workers finish. The caller must drain out.
-func Stream(root string, out chan<- ScanResult) error {
-	files, err := collectFiles(root)
-	if err != nil {
+// StreamCached walks root for EPUB files and reuses cache entries whose
+// modification times have not changed. It closes out when all workers finish.
+// The caller must drain out, then call wait to receive fatal traversal errors
+// and per-file parse warnings.
+func StreamCached(root string, cache map[string]CacheEntry, out chan<- ScanResult) (func() (error, []error), error) {
+	if _, err := os.Stat(root); err != nil {
 		close(out)
-		return err
+		return nil, err
+	}
+	files, fatalErrs, warnings := collectFiles(root)
+	var errMu sync.Mutex
+	addWarning := func(err error) {
+		errMu.Lock()
+		warnings = append(warnings, err)
+		errMu.Unlock()
 	}
 
 	type job struct {
@@ -48,26 +64,44 @@ func Stream(root string, out chan<- ScanResult) error {
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
-				if book, ok := parseBook(root, j.path); ok {
-					out <- ScanResult{ModTime: j.modTime, Book: book}
+				rel, _ := filepath.Rel(root, j.path)
+				if cached, ok := cache[rel]; ok && cached.ModTime.Equal(j.modTime) {
+					out <- ScanResult{ModTime: j.modTime, Book: cached.Book}
+					continue
 				}
+				book, err := parseBook(root, j.path)
+				if err != nil {
+					addWarning(fmt.Errorf("%s: %w", j.path, err))
+					continue
+				}
+				out <- ScanResult{ModTime: j.modTime, Book: book}
 			}
 		}()
 	}
 
+	done := make(chan struct{})
 	go func() {
 		wg.Wait()
 		close(out)
+		close(done)
 	}()
 
-	return nil
+	return func() (error, []error) {
+		<-done
+		errMu.Lock()
+		defer errMu.Unlock()
+		return errors.Join(fatalErrs...), warnings
+	}, nil
 }
 
-func collectFiles(root string) ([]fileInfo, error) {
+func collectFiles(root string) ([]fileInfo, []error, []error) {
 	var files []fileInfo
+	var fatalErrs []error
+	var warnings []error
 
 	err := filepath.WalkDir(root, func(path string, d fs.DirEntry, err error) error {
 		if err != nil {
+			fatalErrs = append(fatalErrs, err)
 			return nil
 		}
 		if d.IsDir() {
@@ -81,19 +115,23 @@ func collectFiles(root string) ([]fileInfo, error) {
 		}
 		info, err := d.Info()
 		if err != nil {
+			warnings = append(warnings, err)
 			return nil
 		}
 		files = append(files, fileInfo{path, info.ModTime()})
 		return nil
 	})
 
-	return files, err
+	if err != nil {
+		fatalErrs = append(fatalErrs, err)
+	}
+	return files, fatalErrs, warnings
 }
 
-func parseBook(root, path string) (model.Book, bool) {
+func parseBook(root, path string) (model.Book, error) {
 	title, language, series, coverPath, authors, tags, err := parseEpub(path)
 	if err != nil {
-		return model.Book{}, false
+		return model.Book{}, err
 	}
 	if title == "" {
 		title = strings.TrimSuffix(filepath.Base(path), filepath.Ext(path))
@@ -115,7 +153,7 @@ func parseBook(root, path string) (model.Book, bool) {
 		Path:      rel,
 		CoverURL:  coverURL,
 		CoverPath: coverPath,
-	}, true
+	}, nil
 }
 
 func BuildLibrary(books []model.Book) model.Library {

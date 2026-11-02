@@ -193,6 +193,9 @@
     var hideTimer = null;
     var searchOpenTimer = null;
     var searchHideTimer = null;
+    var bookSearchTimer = null;
+    var bookSearchController = null;
+    var bookSearchRequest = 0;
     var frameCloseBound = false;
     var frameScrollBound = false;
     var frameWheelBound = false;
@@ -1100,20 +1103,27 @@
     }
 
     function runBookSearch(query, noNavigate) {
+      clearTimeout(bookSearchTimer);
+      bookSearchTimer = null;
+      var request = ++bookSearchRequest;
+      if (bookSearchController) bookSearchController.abort();
       searchQuery = query.trim();
       clearSearchHighlights();
       bookSearchMatches = [];
       if (!searchQuery) {
+        bookSearchController = null;
         activeBookSearchIndex = -1;
         persistSearchState();
         updateSearchUI();
         return Promise.resolve();
       }
+      bookSearchController = new AbortController();
       return fetch(
         Settings.routes.search +
           encodedPath +
           "?q=" +
           encodeURIComponent(searchQuery),
+        { signal: bookSearchController.signal },
       )
         .then(function (r) {
           if (!r.ok) {
@@ -1122,6 +1132,7 @@
           return r.json();
         })
         .then(function (matches) {
+          if (request !== bookSearchRequest) return;
           bookSearchMatches = Array.isArray(matches) ? matches : [];
           if (!bookSearchMatches.length) {
             activeBookSearchIndex = -1;
@@ -1143,11 +1154,20 @@
           setActiveBookSearchMatch(activeBookSearchIndex);
         })
         .catch(function () {
+          if (request !== bookSearchRequest) return;
           bookSearchMatches = [];
           activeBookSearchIndex = -1;
           persistSearchState();
           updateSearchUI();
         });
+    }
+
+    function cancelBookSearch() {
+      clearTimeout(bookSearchTimer);
+      bookSearchTimer = null;
+      bookSearchRequest++;
+      if (bookSearchController) bookSearchController.abort();
+      bookSearchController = null;
     }
 
     function scheduleHide() {
@@ -1616,9 +1636,13 @@
     if (searchInput) {
       searchInput.addEventListener("input", function () {
         openSearch(false);
+        searchQuery = searchInput.value.trim();
         if (searchScope === "book") {
           activeBookSearchIndex = 0;
-          runBookSearch(searchInput.value, true);
+          cancelBookSearch();
+          bookSearchTimer = setTimeout(function () {
+            runBookSearch(searchInput.value, true);
+          }, 200);
           return;
         }
         runSearch(searchInput.value);
@@ -1657,6 +1681,8 @@
     }
     if (searchScopeToggle) {
       searchScopeToggle.addEventListener("click", function () {
+        cancelBookSearch();
+        searchQuery = searchInput.value.trim();
         searchScope = searchScope === "book" ? "chapter" : "book";
         sessionStorage.setItem(
           readerStorageKey(Settings.readerSearchScopeSuffix) + encodedPath,
@@ -1721,9 +1747,7 @@
     updateSearchUI();
     frame.addEventListener("load", onFrameLoad);
     frameBack.addEventListener("load", onFrameLoad);
-    if (chapterIndexFromURL(frameBack.contentDocument.URL) === currentIndex) {
-      bufferReady = true;
-    }
+    bufferReady = true;
     initSidebarResize();
     bindReaderShortcuts();
     bindShellChapterLinks();

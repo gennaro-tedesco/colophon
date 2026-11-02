@@ -44,5 +44,5 @@ func saveConfig(cfg Config) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, defaultFileMode)
+	return writeFileAtomic(p, data)
 }

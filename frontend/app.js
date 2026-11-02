@@ -1,5 +1,8 @@
 (function () {
   let allBooks = [];
+  let searchIndex = new WeakMap();
+  let searchRenderTimer = null;
+  const bookRowCache = new Map();
   let navGroups = groupValues(() => []);
   let navCounts = groupValues(() => ({}));
   let activeFilters = createEmptyFilters();
@@ -16,7 +19,6 @@
   const nav = document.getElementById("nav");
   const list = document.getElementById("list");
   const stats = document.getElementById("stats");
-  const logo = document.querySelector(".logo");
   const search = document.getElementById("search");
   const searchScopeEl = document.getElementById("search-scope");
   const searchScopeWrap = document.getElementById("search-scope-wrap");
@@ -78,6 +80,7 @@
   let scanVisibleAt = 0;
   let startupScanPending = false;
   let searchScope = "all";
+  const SEARCH_RENDER_DELAY = 150;
   const SEARCH_SCOPE_VALUES = [
     "all",
     "title",
@@ -275,6 +278,7 @@
   }
 
   function applyLibraryData(books) {
+    bookRowCache.clear();
     allBooks = books || [];
     if (allBooks.length === 0) {
       resetLibraryData();
@@ -807,6 +811,8 @@
         updateSearchPlaceholder(item.value);
         updateSearchScopeChoices(item.value);
         closeSearchScopeMenu();
+        clearTimeout(searchRenderTimer);
+        searchRenderTimer = null;
         renderFiltered();
         updateViewButtons();
       });
@@ -976,7 +982,11 @@
 
   search.addEventListener("input", () => {
     searchClear.classList.toggle("visible", search.value.length > 0);
-    renderFiltered();
+    clearTimeout(searchRenderTimer);
+    searchRenderTimer = setTimeout(function () {
+      searchRenderTimer = null;
+      renderFiltered();
+    }, SEARCH_RENDER_DELAY);
     updateViewButtons();
   });
 
@@ -994,6 +1004,8 @@
   searchClear.addEventListener("click", () => {
     search.value = "";
     searchClear.classList.remove("visible");
+    clearTimeout(searchRenderTimer);
+    searchRenderTimer = null;
     search.focus();
     renderFiltered();
   });
@@ -1433,28 +1445,25 @@
   }
 
   function searchHaystack(book, scope) {
-    switch (scope) {
-      case "title":
-        return (book.title || "").toLowerCase();
-      case "authors":
-        return (book.authors || []).join(" ").toLowerCase();
-      case "series":
-        return (book.series || "").toLowerCase();
-      case "tags":
-        return (book.tags || []).join(" ").toLowerCase();
-      case "language":
-        return (book.language || "").toLowerCase();
-      default:
-        return [
-          book.title || "",
-          ...(book.authors || []),
-          book.series || "",
-          ...(book.tags || []),
-          book.language || "",
-        ]
-          .join(" ")
-          .toLowerCase();
+    let fields = searchIndex.get(book);
+    if (!fields) {
+      fields = {
+        title: (book.title || "").toLowerCase(),
+        authors: (book.authors || []).join(" ").toLowerCase(),
+        series: (book.series || "").toLowerCase(),
+        tags: (book.tags || []).join(" ").toLowerCase(),
+        language: (book.language || "").toLowerCase(),
+      };
+      fields.all = [
+        fields.title,
+        fields.authors,
+        fields.series,
+        fields.tags,
+        fields.language,
+      ].join(" ");
+      searchIndex.set(book, fields);
     }
+    return fields[scope] || fields.all;
   }
 
   function filterBooks() {
@@ -1510,20 +1519,25 @@
   }
 
   function renderBookList(filtered) {
-    list.innerHTML = "";
     if (filtered.length === 0) {
+      bookRowCache.clear();
       const emptyEl = document.createElement("div");
       emptyEl.className = "empty";
       emptyEl.textContent = t("books.noBooks");
-      list.appendChild(emptyEl);
+      list.replaceChildren(emptyEl);
       return;
     }
 
     const frag = document.createDocumentFragment();
     filtered.forEach((book) => {
-      frag.appendChild(bookRow(book));
+      let cached = bookRowCache.get(book.path);
+      if (!cached || cached.book !== book) {
+        cached = { book: book, element: bookRow(book) };
+        bookRowCache.set(book.path, cached);
+      }
+      frag.appendChild(cached.element);
     });
-    list.appendChild(frag);
+    list.replaceChildren(frag);
   }
 
   function renderStatsView(books) {
