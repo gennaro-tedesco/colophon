@@ -54,5 +54,30 @@ func saveBookCache(root string, c bookCache) error {
 	if err != nil {
 		return err
 	}
-	return os.WriteFile(p, data, defaultFileMode)
+	return writeFileAtomic(p, data)
+}
+
+func writeFileAtomic(p string, data []byte) error {
+	f, err := os.CreateTemp(filepath.Dir(p), ".colophon-*")
+	if err != nil {
+		return err
+	}
+	name := f.Name()
+	defer os.Remove(name)
+	if _, err := f.Write(data); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Chmod(defaultFileMode); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Sync(); err != nil {
+		f.Close()
+		return err
+	}
+	if err := f.Close(); err != nil {
+		return err
+	}
+	return os.Rename(name, p)
 }

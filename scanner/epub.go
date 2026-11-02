@@ -12,6 +12,8 @@ import (
 	xhtml "golang.org/x/net/html"
 )
 
+const maxZipEntrySize = 32 << 20
+
 type container struct {
 	Rootfile struct {
 		FullPath string `xml:"full-path,attr"`
@@ -415,14 +417,20 @@ func readZipEntry(r *zip.ReadCloser, entry string) ([]byte, error) {
 		if f.Name != entry {
 			continue
 		}
+		if f.CompressedSize64 > maxZipEntrySize || f.UncompressedSize64 > maxZipEntrySize {
+			return nil, errors.New("ZIP entry exceeds size limit")
+		}
 		rc, err := f.Open()
 		if err != nil {
 			return nil, err
 		}
-		data, err := io.ReadAll(rc)
+		data, err := io.ReadAll(io.LimitReader(rc, maxZipEntrySize+1))
 		rc.Close()
 		if err != nil {
 			return nil, err
+		}
+		if len(data) > maxZipEntrySize {
+			return nil, errors.New("ZIP entry exceeds size limit")
 		}
 		return data, nil
 	}
@@ -488,48 +496,32 @@ func isImageMediaType(mt string) bool {
 func readOPFPackage(r *zip.ReadCloser, opfPath string) (opfPackage, string, error) {
 	opfDir := filepath.ToSlash(filepath.Dir(opfPath))
 
-	for _, f := range r.File {
-		if f.Name != opfPath {
-			continue
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return opfPackage{}, "", err
-		}
-		data, err := io.ReadAll(rc)
-		rc.Close()
-		if err != nil {
-			return opfPackage{}, "", err
-		}
-
-		var pkg opfPackage
-		if err := xml.Unmarshal(data, &pkg); err != nil {
-			return opfPackage{}, "", err
-		}
-		return pkg, opfDir, nil
+	data, err := readZipEntry(r, opfPath)
+	if err != nil {
+		return opfPackage{}, "", err
 	}
 
-	return opfPackage{}, "", errors.New("OPF document not found in EPUB")
+	var pkg opfPackage
+	if err := xml.Unmarshal(data, &pkg); err != nil {
+		return opfPackage{}, "", err
+	}
+	return pkg, opfDir, nil
 }
 
 func findOPFPath(r *zip.ReadCloser) (string, error) {
 	for _, f := range r.File {
-		if f.Name == "META-INF/container.xml" {
-			rc, err := f.Open()
-			if err != nil {
-				return "", err
-			}
-			data, err := io.ReadAll(rc)
-			rc.Close()
-			if err != nil {
-				return "", err
-			}
-			var c container
-			if err := xml.Unmarshal(data, &c); err != nil {
-				return "", err
-			}
-			return c.Rootfile.FullPath, nil
+		if f.Name != "META-INF/container.xml" {
+			continue
 		}
+		data, err := readZipEntry(r, f.Name)
+		if err != nil {
+			return "", err
+		}
+		var c container
+		if err := xml.Unmarshal(data, &c); err != nil {
+			return "", err
+		}
+		return c.Rootfile.FullPath, nil
 	}
 	for _, f := range r.File {
 		if strings.HasSuffix(f.Name, ".opf") {

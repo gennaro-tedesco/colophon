@@ -44,6 +44,7 @@ const (
 	readerAssetCacheMaxAgeSeconds = 3600
 	readerCacheCapacity           = 8
 	readerSearchMaxResults        = 1000
+	maxReaderEntrySize            = 32 << 20
 )
 
 type readerShellData struct {
@@ -104,7 +105,29 @@ type readerCacheEntry struct {
 	pins       int
 }
 
-func NewHandler(root string, lib model.Library, fonts []string, theme string) http.Handler {
+type Handler struct {
+	mux   http.Handler
+	mu    sync.RWMutex
+	theme string
+}
+
+func (h *Handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	h.mux.ServeHTTP(w, r)
+}
+
+func (h *Handler) SetTheme(theme string) {
+	h.mu.Lock()
+	h.theme = theme
+	h.mu.Unlock()
+}
+
+func (h *Handler) currentTheme() string {
+	h.mu.RLock()
+	defer h.mu.RUnlock()
+	return h.theme
+}
+
+func NewHandler(root string, lib model.Library, fonts []string, theme string) *Handler {
 	titleIndex := make(map[string]string, len(lib.Books))
 	authorIndex := make(map[string]string, len(lib.Books))
 	cache := &readerCache{
@@ -117,6 +140,7 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 		authorIndex[b.Path] = strings.Join(b.Authors, ", ")
 	}
 
+	h := &Handler{theme: theme}
 	mux := http.NewServeMux()
 	mux.HandleFunc(contract.ScriptPath, contract.ServeScript)
 	mux.HandleFunc(contract.ResourcesPath, contract.ServeResources)
@@ -230,11 +254,12 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) ht
 		case "chapter":
 			serveChapterDocument(w, r, absEpub, epubRel, cache)
 		default:
-			serveReaderShell(w, r, absEpub, epubRel, titleIndex[epubRel], authorIndex[epubRel], cache, theme)
+			serveReaderShell(w, r, absEpub, epubRel, titleIndex[epubRel], authorIndex[epubRel], cache, h.currentTheme())
 		}
 	})
 
-	return mux
+	h.mux = mux
+	return h
 }
 
 func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, title, meta string, cache *readerCache, theme string) {
@@ -1057,14 +1082,20 @@ func readZipEntry(r *zip.Reader, entry string) ([]byte, error) {
 		if f.Name != entry {
 			continue
 		}
+		if f.CompressedSize64 > maxReaderEntrySize || f.UncompressedSize64 > maxReaderEntrySize {
+			return nil, errors.New("entry exceeds size limit")
+		}
 		rc, err := f.Open()
 		if err != nil {
 			return nil, err
 		}
 		defer rc.Close()
-		data, err := io.ReadAll(rc)
+		data, err := io.ReadAll(io.LimitReader(rc, maxReaderEntrySize+1))
 		if err != nil {
 			return nil, err
+		}
+		if len(data) > maxReaderEntrySize {
+			return nil, errors.New("entry exceeds size limit")
 		}
 		return data, nil
 	}

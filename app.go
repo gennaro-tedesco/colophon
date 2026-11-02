@@ -36,6 +36,7 @@ import "C"
 import (
 	"context"
 	"encoding/json"
+	"log"
 	"net/http"
 	"sort"
 	"sync"
@@ -55,7 +56,7 @@ type App struct {
 	scanMu  sync.Mutex
 	root    string
 	lib     model.Library
-	handler http.Handler
+	handler *server.Handler
 	cfg     Config
 	fonts   []string
 }
@@ -128,7 +129,8 @@ func (a *App) streamScan(dir string) {
 
 	// Phase 2 — parse new/changed files
 	results := make(chan scanner.ScanResult, streamScanBufferSize)
-	if err := scanner.StreamCached(dir, cache, results); err != nil {
+	wait, err := scanner.StreamCached(dir, cache, results)
+	if err != nil {
 		a.mu.RLock()
 		lib := a.lib
 		a.mu.RUnlock()
@@ -143,6 +145,18 @@ func (a *App) streamScan(dir string) {
 		}
 		runtime.EventsEmit(a.ctx, contract.Events["bookAdded"], r.Book)
 	}
+	fatal, warnings := wait()
+	for _, warning := range warnings {
+		log.Printf("scan warning for %s: %v", dir, warning)
+	}
+	if fatal != nil {
+		log.Printf("scan incomplete for %s: %v", dir, fatal)
+		a.mu.RLock()
+		lib := a.lib
+		a.mu.RUnlock()
+		runtime.EventsEmit(a.ctx, contract.Events["scanDone"], lib)
+		return
+	}
 
 	// Phase 3 — finalize
 	finalBooks := make([]model.Book, 0, len(newCache))
@@ -151,24 +165,30 @@ func (a *App) streamScan(dir string) {
 	}
 	sort.Slice(finalBooks, func(i, j int) bool { return finalBooks[i].Title < finalBooks[j].Title })
 	finalLib := scanner.BuildLibrary(finalBooks)
+	if err := saveBookCache(dir, newCache); err != nil {
+		log.Printf("could not save book cache for %s: %v", dir, err)
+	}
 	a.mu.Lock()
 	a.lib = finalLib
 	a.root = dir
 	a.handler = server.NewHandler(dir, a.lib, fonts, a.cfg.Theme)
 	a.mu.Unlock()
-
-	saveBookCache(dir, newCache)
 	runtime.EventsEmit(a.ctx, contract.Events["scanDone"], finalLib)
 }
 
-// scan is the synchronous path used by PickAndScan and SaveConfig.
+// scan is the synchronous path used by PickAndScan and Rescan.
 func (a *App) scan(dir string) error {
 	a.scanMu.Lock()
 	defer a.scanMu.Unlock()
+	return a.scanLocked(dir)
+}
+
+func (a *App) scanLocked(dir string) error {
 	fonts := a.getFonts()
 	cache := loadBookCache(dir)
 	results := make(chan scanner.ScanResult, synchronousScanBufferSize)
-	if err := scanner.StreamCached(dir, cache, results); err != nil {
+	wait, err := scanner.StreamCached(dir, cache, results)
+	if err != nil {
 		return err
 	}
 	newCache := make(bookCache)
@@ -177,14 +197,23 @@ func (a *App) scan(dir string) error {
 		books = append(books, r.Book)
 		newCache[r.Book.Path] = cacheEntry{ModTime: r.ModTime, Book: r.Book}
 	}
+	fatal, warnings := wait()
+	for _, warning := range warnings {
+		log.Printf("scan warning for %s: %v", dir, warning)
+	}
+	if fatal != nil {
+		return fatal
+	}
 	sort.Slice(books, func(i, j int) bool { return books[i].Title < books[j].Title })
 	lib := scanner.BuildLibrary(books)
+	if err := saveBookCache(dir, newCache); err != nil {
+		return err
+	}
 	a.mu.Lock()
 	a.root = dir
 	a.lib = lib
 	a.handler = server.NewHandler(dir, lib, fonts, a.cfg.Theme)
 	a.mu.Unlock()
-	saveBookCache(dir, newCache)
 	return nil
 }
 
@@ -205,14 +234,29 @@ func (a *App) GetConfig() Config {
 }
 
 func (a *App) SaveConfig(cfg Config) error {
+	a.scanMu.Lock()
+	defer a.scanMu.Unlock()
+
 	a.mu.RLock()
 	root := a.root
+	prevCfg := a.cfg
+	prevLib := a.lib
+	prevHandler := a.handler
 	a.mu.RUnlock()
 	cfg.Version = ""
 	if cfg.LibraryDir != "" && cfg.LibraryDir != root {
-		if err := a.scan(cfg.LibraryDir); err != nil {
+		if err := a.scanLocked(cfg.LibraryDir); err != nil {
 			return err
 		}
+	}
+	if err := saveConfig(cfg); err != nil {
+		a.mu.Lock()
+		a.root = root
+		a.lib = prevLib
+		a.handler = prevHandler
+		a.cfg = prevCfg
+		a.mu.Unlock()
+		return err
 	}
 	a.mu.Lock()
 	a.cfg = cfg
@@ -220,11 +264,11 @@ func (a *App) SaveConfig(cfg Config) error {
 		a.root = ""
 		a.lib = model.Library{}
 		a.handler = nil
-	} else if a.root != "" {
-		a.handler = server.NewHandler(a.root, a.lib, a.fonts, cfg.Theme)
+	} else if a.handler != nil {
+		a.handler.SetTheme(cfg.Theme)
 	}
 	a.mu.Unlock()
-	return saveConfig(cfg)
+	return nil
 }
 
 func (a *App) GetLibrary() model.Library {
@@ -246,7 +290,16 @@ func (a *App) PickAndScan() (model.Library, error) {
 		a.mu.RUnlock()
 		return lib, nil
 	}
-	if err := a.scan(dir); err != nil {
+	a.scanMu.Lock()
+	defer a.scanMu.Unlock()
+
+	a.mu.RLock()
+	root := a.root
+	prevCfg := a.cfg
+	prevLib := a.lib
+	prevHandler := a.handler
+	a.mu.RUnlock()
+	if err := a.scanLocked(dir); err != nil {
 		return model.Library{}, err
 	}
 	a.mu.Lock()
@@ -254,7 +307,15 @@ func (a *App) PickAndScan() (model.Library, error) {
 	cfg := a.cfg
 	lib := a.lib
 	a.mu.Unlock()
-	saveConfig(cfg)
+	if err := saveConfig(cfg); err != nil {
+		a.mu.Lock()
+		a.root = root
+		a.lib = prevLib
+		a.handler = prevHandler
+		a.cfg = prevCfg
+		a.mu.Unlock()
+		return lib, err
+	}
 	return lib, nil
 }
 
