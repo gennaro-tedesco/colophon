@@ -297,7 +297,7 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 		CurrentChapter: chapters[chapterIndex].Title,
 		Progress:       strconv.Itoa(chapterIndex+1) + " / " + strconv.Itoa(len(book.Chapters)),
 		ChapterCount:   len(book.Chapters),
-		TOCHTML:        buildTOCHTML(book.TOC, book.Spine, epubRel, book.Spine[chapterIndex]),
+		TOCHTML:        buildTOCHTML(book.TOC, book.Spine, epubRel, book.Spine[chapterIndex], r.URL.Query().Get("frag")),
 		EncodedPath:    encodeURLPath(epubRel),
 		CurrentIndex:   chapterIndex,
 		IframeSrc:      template.URL(readerChapterDocURL(epubRel, chapterIndex, r.URL.Query().Get("frag"))),
@@ -719,14 +719,14 @@ func flattenTOCLabels(entries []scanner.TOCEntry) map[string]string {
 	return labels
 }
 
-func buildTOCHTML(entries []scanner.TOCEntry, spine []string, epubRel, currentPath string) template.HTML {
+func buildTOCHTML(entries []scanner.TOCEntry, spine []string, epubRel, currentPath, currentFragment string) template.HTML {
 	indexByPath := make(map[string]int, len(spine))
 	for i, chapterPath := range spine {
 		indexByPath[chapterPath] = i
 	}
 	entries = attachSpineContinuations(entries, spine)
 	var out strings.Builder
-	renderTOCEntries(&out, entries, indexByPath, epubRel, currentPath)
+	renderTOCEntries(&out, entries, indexByPath, epubRel, currentPath, currentFragment)
 	return template.HTML(out.String())
 }
 
@@ -782,22 +782,22 @@ func collectTOCPaths(entries []scanner.TOCEntry, paths map[string]bool) {
 	}
 }
 
-func renderTOCEntries(out *strings.Builder, entries []scanner.TOCEntry, indexByPath map[string]int, epubRel, currentPath string) bool {
+func renderTOCEntries(out *strings.Builder, entries []scanner.TOCEntry, indexByPath map[string]int, epubRel, currentPath, currentFragment string) bool {
 	hasActive := false
 	for _, entry := range entries {
-		entryActive := renderTOCEntry(out, entry, indexByPath, epubRel, currentPath)
+		entryActive := renderTOCEntry(out, entry, indexByPath, epubRel, currentPath, currentFragment)
 		hasActive = hasActive || entryActive
 	}
 	return hasActive
 }
 
-func renderTOCEntry(out *strings.Builder, entry scanner.TOCEntry, indexByPath map[string]int, epubRel, currentPath string) bool {
-	active := entry.Path != "" && entry.Path == currentPath
+func renderTOCEntry(out *strings.Builder, entry scanner.TOCEntry, indexByPath map[string]int, epubRel, currentPath, currentFragment string) bool {
+	active := entry.Path != "" && entry.Path == currentPath && entry.Fragment == currentFragment
 	title := html.EscapeString(entry.Title)
 
 	if len(entry.Children) == 0 {
-		if href, ok := readerTOCEntryURL(epubRel, entry.Path, indexByPath); ok {
-			renderTOCLink(out, title, href, active, indexByPath[entry.Path])
+		if href, ok := readerTOCEntryURL(epubRel, entry.Path, entry.Fragment, indexByPath); ok {
+			renderTOCLink(out, title, href, active, indexByPath[entry.Path], entry.Fragment)
 		}
 		return active
 	}
@@ -811,8 +811,8 @@ func renderTOCEntry(out *strings.Builder, entry scanner.TOCEntry, indexByPath ma
 	}
 
 	if allSynthetic {
-		if href, ok := readerTOCEntryURL(epubRel, entry.Path, indexByPath); ok {
-			renderTOCLink(out, title, href, active, indexByPath[entry.Path])
+		if href, ok := readerTOCEntryURL(epubRel, entry.Path, entry.Fragment, indexByPath); ok {
+			renderTOCLink(out, title, href, active, indexByPath[entry.Path], entry.Fragment)
 		}
 		return active
 	}
@@ -825,10 +825,10 @@ func renderTOCEntry(out *strings.Builder, entry scanner.TOCEntry, indexByPath ma
 	}
 
 	childBuf := &strings.Builder{}
-	childActive := renderTOCEntries(childBuf, realChildren, indexByPath, epubRel, currentPath)
+	childActive := renderTOCEntries(childBuf, realChildren, indexByPath, epubRel, currentPath, currentFragment)
 	branchActive := active || childActive
 
-	href, hasHref := readerTOCEntryURL(epubRel, entry.Path, indexByPath)
+	href, hasHref := readerTOCEntryURL(epubRel, entry.Path, entry.Fragment, indexByPath)
 	out.WriteString(`<div class="group-section`)
 	if branchActive {
 		out.WriteString(` open`)
@@ -853,13 +853,15 @@ func renderTOCEntry(out *strings.Builder, entry scanner.TOCEntry, indexByPath ma
 	return branchActive
 }
 
-func renderTOCLink(out *strings.Builder, title, href string, active bool, chapterIndex int) {
+func renderTOCLink(out *strings.Builder, title, href string, active bool, chapterIndex int, fragment string) {
 	out.WriteString(`<a class="group-item`)
 	if active {
 		out.WriteString(` active`)
 	}
 	out.WriteString(`" data-toc-chapter="`)
 	out.WriteString(strconv.Itoa(chapterIndex))
+	out.WriteString(`" data-toc-fragment="`)
+	out.WriteString(html.EscapeString(fragment))
 	out.WriteString(`" href="`)
 	out.WriteString(html.EscapeString(href))
 	out.WriteString(`"><span class="group-item-label">`)
@@ -873,6 +875,7 @@ func cloneTOCEntries(entries []scanner.TOCEntry) []scanner.TOCEntry {
 		cloned[i] = scanner.TOCEntry{
 			Title:    entry.Title,
 			Path:     entry.Path,
+			Fragment: entry.Fragment,
 			Children: cloneTOCEntries(entry.Children),
 		}
 	}
@@ -889,12 +892,12 @@ func indexTOCEntries(entries []scanner.TOCEntry, byPath map[string]*scanner.TOCE
 	}
 }
 
-func readerTOCEntryURL(epubRel, entryPath string, indexByPath map[string]int) (string, bool) {
+func readerTOCEntryURL(epubRel, entryPath, fragment string, indexByPath map[string]int) (string, bool) {
 	chapterIndex, ok := indexByPath[entryPath]
 	if !ok {
 		return "", false
 	}
-	return readerShellURL(epubRel, chapterIndex, ""), true
+	return readerShellURL(epubRel, chapterIndex, fragment), true
 }
 
 func extractChapterTitle(chapterHTML []byte) string {

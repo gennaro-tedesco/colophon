@@ -204,6 +204,7 @@
     var themeFrame = 0;
     var prevIndex = -1;
     var nextIndex = -1;
+    var currentFragment = "";
     var pendingChapter = -1;
     var bufferReady = false;
     var pendingNavigation = null;
@@ -482,15 +483,27 @@
       showChapter(index, "", true);
     }
 
-    function markActiveTOC(index) {
+    function markActiveTOC(index, fragment) {
       if (!toc) return;
-      toc.querySelectorAll("a[data-toc-chapter]").forEach(function (link) {
-        link.classList.toggle(
-          "active",
-          Number(link.dataset.tocChapter) === index,
-        );
+      var links = Array.from(toc.querySelectorAll("a[data-toc-chapter]"));
+      var chapterLinks = links.filter(function (link) {
+        return Number(link.dataset.tocChapter) === index;
       });
-      var active = toc.querySelector("a[data-toc-chapter].active");
+      var active = null;
+      if (fragment) {
+        active = chapterLinks.find(function (link) {
+          return link.dataset.tocFragment === fragment;
+        });
+      }
+      if (!active) {
+        active =
+          chapterLinks.find(function (link) {
+            return !link.dataset.tocFragment;
+          }) || chapterLinks[0];
+      }
+      links.forEach(function (link) {
+        link.classList.toggle("active", link === active);
+      });
       var section = active ? active.closest(".group-section") : null;
       while (section) {
         section.classList.add("open");
@@ -498,6 +511,45 @@
           ? section.parentNode.closest(".group-section")
           : null;
       }
+    }
+
+    function fragmentFromURL(href) {
+      try {
+        var fragment = new URL(href, window.location.href).hash.slice(1);
+        return fragment ? decodeURIComponent(fragment) : "";
+      } catch (err) {
+        return "";
+      }
+    }
+
+    function scrollToFragment(doc, fragment) {
+      if (!fragment) return false;
+      var target =
+        doc.getElementById(fragment) || doc.getElementsByName(fragment)[0];
+      if (!target) return false;
+      target.scrollIntoView();
+      return true;
+    }
+
+    function updateActiveTOCFromFrame() {
+      if (!toc || !frame.contentDocument) return;
+      var doc = frame.contentDocument;
+      var win = doc.defaultView;
+      if (!win) return;
+      var threshold = Math.min(win.innerHeight * 0.25, 160);
+      var fragment = "";
+      toc.querySelectorAll("a[data-toc-chapter]").forEach(function (link) {
+        if (Number(link.dataset.tocChapter) !== currentIndex) return;
+        var candidate = link.dataset.tocFragment;
+        if (!candidate) return;
+        var target =
+          doc.getElementById(candidate) || doc.getElementsByName(candidate)[0];
+        if (target && target.getBoundingClientRect().top <= threshold) {
+          fragment = candidate;
+        }
+      });
+      currentFragment = fragment;
+      markActiveTOC(currentIndex, currentFragment);
     }
 
     function updateChapterLinks(index) {
@@ -532,7 +584,12 @@
     function commitFrame(index) {
       var incoming = frameBack;
       var doc = incoming.contentDocument;
-      if (!doc || chapterIndexFromURL(doc.URL) !== index) return false;
+      if (
+        !doc ||
+        chapterIndexFromURL(doc.URL) !== index ||
+        fragmentFromURL(doc.URL) !== currentFragment
+      )
+        return false;
       var outgoing = frame;
       var focusWasInFrame =
         outgoing.contentDocument && outgoing.contentDocument.hasFocus();
@@ -575,17 +632,27 @@
         return;
       }
       currentIndex = index;
-      pendingChapter = index;
+      currentFragment = fragment || "";
       clearNavHover();
-      var src = chapterDocURL(index, fragment);
+      var currentDoc = frame.contentDocument;
       if (
-        frameBack.contentDocument &&
-        frameBack.contentDocument.URL ===
-          new URL(src, window.location.href).href
+        currentDoc &&
+        chapterIndexFromURL(currentDoc.URL) === index &&
+        scrollToFragment(currentDoc, currentFragment)
       ) {
-        frameBack.contentWindow.location.reload();
+        pendingChapter = -1;
       } else {
-        frameBack.src = src;
+        pendingChapter = index;
+        var src = chapterDocURL(index, fragment);
+        if (
+          frameBack.contentDocument &&
+          frameBack.contentDocument.URL ===
+            new URL(src, window.location.href).href
+        ) {
+          frameBack.contentWindow.location.reload();
+        } else {
+          frameBack.src = src;
+        }
       }
       if (chapterHeading) chapterHeading.textContent = meta.title;
       if (progressBadge) {
@@ -593,7 +660,7 @@
           String(index + 1) + " / " + String(chapterCount);
       }
       updateChapterLinks(index);
-      markActiveTOC(index);
+      markActiveTOC(index, currentFragment);
       localStorage.setItem(
         Settings.lastReadKey,
         JSON.stringify({
@@ -1390,6 +1457,7 @@
       progressFrame = requestAnimationFrame(function () {
         progressFrame = 0;
         updateReaderProgress();
+        updateActiveTOCFromFrame();
       });
     }
 
@@ -1403,9 +1471,10 @@
         passive: true,
         capture: true,
       });
-      win.addEventListener("resize", updateReaderProgress);
+      win.addEventListener("resize", scheduleReaderProgress);
       frameScrollBound = true;
       updateReaderProgress();
+      updateActiveTOCFromFrame();
     }
 
     function setupFrame() {
@@ -1415,7 +1484,9 @@
       frameCloseBound = false;
       frameScrollBound = false;
       frameWheelBound = false;
+      currentFragment = fragmentFromURL(doc.URL);
       applyTheme();
+      scrollToFragment(doc, currentFragment);
       var scrollbarWidth =
         frame.contentWindow.innerWidth -
         frame.contentDocument.documentElement.clientWidth;
