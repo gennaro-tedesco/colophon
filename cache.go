@@ -1,20 +1,15 @@
 package main
 
 import (
+	"colophon/scanner"
 	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"os"
 	"path/filepath"
-	"time"
-
-	"colophon/model"
 )
 
-type cacheEntry struct {
-	ModTime time.Time  `json:"modTime"`
-	Book    model.Book `json:"book"`
-}
+type cacheEntry = scanner.CacheEntry
 
 type bookCache map[string]cacheEntry
 

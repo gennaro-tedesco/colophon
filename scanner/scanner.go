@@ -18,6 +18,11 @@ type ScanResult struct {
 	Book    model.Book
 }
 
+type CacheEntry struct {
+	ModTime time.Time  `json:"modTime"`
+	Book    model.Book `json:"book"`
+}
+
 type fileInfo struct {
 	path    string
 	modTime time.Time
@@ -26,6 +31,12 @@ type fileInfo struct {
 // Stream walks root for EPUB files and sends parsed results to out as they complete.
 // It closes out when all workers finish. The caller must drain out.
 func Stream(root string, out chan<- ScanResult) error {
+	return StreamCached(root, nil, out)
+}
+
+// StreamCached walks root for EPUB files and reuses cache entries whose
+// modification times have not changed.
+func StreamCached(root string, cache map[string]CacheEntry, out chan<- ScanResult) error {
 	files, err := collectFiles(root)
 	if err != nil {
 		close(out)
@@ -48,6 +59,11 @@ func Stream(root string, out chan<- ScanResult) error {
 		go func() {
 			defer wg.Done()
 			for j := range jobs {
+				rel, _ := filepath.Rel(root, j.path)
+				if cached, ok := cache[rel]; ok && cached.ModTime.Equal(j.modTime) {
+					out <- ScanResult{ModTime: j.modTime, Book: cached.Book}
+					continue
+				}
 				if book, ok := parseBook(root, j.path); ok {
 					out <- ScanResult{ModTime: j.modTime, Book: book}
 				}

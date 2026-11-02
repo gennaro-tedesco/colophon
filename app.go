@@ -52,6 +52,7 @@ import (
 type App struct {
 	ctx     context.Context
 	mu      sync.RWMutex
+	scanMu  sync.Mutex
 	root    string
 	lib     model.Library
 	handler http.Handler
@@ -103,16 +104,16 @@ func (a *App) getFonts() []string {
 // Phase 2: parse new/changed files and emit each.
 // Phase 3: sort, build handler, persist updated cache, emit scan:done.
 func (a *App) streamScan(dir string) {
+	a.scanMu.Lock()
+	defer a.scanMu.Unlock()
 	fonts := a.getFonts()
 	cache := loadBookCache(dir)
 	newCache := make(bookCache)
-	booksByPath := make(map[string]model.Book, len(cache))
 
 	// Phase 1 — emit cached books immediately
 	cached := make([]model.Book, 0, len(cache))
 	for _, entry := range cache {
 		cached = append(cached, entry.Book)
-		booksByPath[entry.Book.Path] = entry.Book
 		runtime.EventsEmit(a.ctx, contract.Events["bookAdded"], entry.Book)
 	}
 	if len(cached) > 0 {
@@ -127,7 +128,7 @@ func (a *App) streamScan(dir string) {
 
 	// Phase 2 — parse new/changed files
 	results := make(chan scanner.ScanResult, streamScanBufferSize)
-	if err := scanner.Stream(dir, results); err != nil {
+	if err := scanner.StreamCached(dir, cache, results); err != nil {
 		a.mu.RLock()
 		lib := a.lib
 		a.mu.RUnlock()
@@ -136,7 +137,6 @@ func (a *App) streamScan(dir string) {
 	}
 	for r := range results {
 		newCache[r.Book.Path] = cacheEntry{ModTime: r.ModTime, Book: r.Book}
-		booksByPath[r.Book.Path] = r.Book
 		old, inCache := cache[r.Book.Path]
 		if inCache && old.ModTime.Equal(r.ModTime) {
 			continue // already emitted
@@ -163,9 +163,12 @@ func (a *App) streamScan(dir string) {
 
 // scan is the synchronous path used by PickAndScan and SaveConfig.
 func (a *App) scan(dir string) error {
+	a.scanMu.Lock()
+	defer a.scanMu.Unlock()
 	fonts := a.getFonts()
+	cache := loadBookCache(dir)
 	results := make(chan scanner.ScanResult, synchronousScanBufferSize)
-	if err := scanner.Stream(dir, results); err != nil {
+	if err := scanner.StreamCached(dir, cache, results); err != nil {
 		return err
 	}
 	newCache := make(bookCache)
