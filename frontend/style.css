@@ -460,7 +460,7 @@ body.sidebar-collapsed #sidebar {
   width: var(--library-scan-loading-spinner-width);
   height: var(--library-scan-loading-spinner-height);
   border-radius: var(--library-scan-loading-spinner-border-radius);
-  border: var(--library-scan-loading-spinner-border);
+  border: 2px solid var(--surface1);
   border-top-color: var(--teal);
   animation: scan-spin var(--motion-spinner) linear infinite;
 }
@@ -667,6 +667,17 @@ body.sidebar-collapsed #sidebar {
   height: 100%;
   border: 0;
   background: var(--base);
+}
+
+#reader-loader {
+  position: absolute;
+  inset: 0;
+  display: none;
+  background: var(--base);
+}
+
+#reader-overlay.loading #reader-loader {
+  display: flex;
 }
 
 #continue-reading,

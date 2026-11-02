@@ -1186,6 +1186,8 @@
       return;
     }
     readerOverlayLoading = true;
+    readerOverlay.classList.add("loading");
+    readerOverlay.classList.add("visible");
     readerOverlayFrame.src = url;
   }
 
@@ -1198,6 +1200,7 @@
   readerOverlayFrame.addEventListener("load", function () {
     if (!readerOverlayLoading) return;
     readerOverlayLoading = false;
+    readerOverlay.classList.remove("loading");
     readerOverlay.classList.add("visible");
     readerOverlayFrame.contentWindow.focus();
   });

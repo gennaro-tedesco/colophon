@@ -58,6 +58,7 @@
           noBooks: "no books found",
           noData: "no data",
           continueReading: "Continue reading: {{title}}",
+          openingBook: "Opening book\u2026",
         },
         prefs: {
           title: "Preferences",
@@ -151,6 +152,7 @@
           noBooks: "keine B\u00fccher gefunden",
           noData: "keine Daten",
           continueReading: "Weiterlesen: {{title}}",
+          openingBook: "Buch wird ge\u00f6ffnet\u2026",
         },
         prefs: {
           title: "Einstellungen",
@@ -244,6 +246,7 @@
           noBooks: "nessun libro trovato",
           noData: "nessun dato",
           continueReading: "Continua a leggere: {{title}}",
+          openingBook: "Apertura del libro\u2026",
         },
         prefs: {
           title: "Preferenze",
@@ -338,6 +341,7 @@
           noBooks: "\u672a\u627e\u5230\u4e66\u7c4d",
           noData: "\u6682\u65e0\u6570\u636e",
           continueReading: "\u7ee7\u7eed\u9605\u8bfb\uff1a{{title}}",
+          openingBook: "\u6b63\u5728\u6253\u5f00\u4e66\u7c4d\u2026",
         },
         prefs: {
           title: "\u504f\u597d\u8bbe\u7f6e",
