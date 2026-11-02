@@ -42,11 +42,3 @@ Visualise your library statistics interactively
 A reader with a beautiful interface to indulge yourself distraction-free, powered of course by vim keybindings (it goes without saying).
 
 <img width="1687" height="1345" alt="Image" src="https://github.com/user-attachments/assets/ed2d8af3-0223-45b4-8478-4b1a8e4d211a" />
-
-## Development
-
-Build locally with
-
-```sh
-wails build && open /build/bin/colophon.app
-```
