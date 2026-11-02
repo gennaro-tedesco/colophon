@@ -667,6 +667,10 @@
       if (sidebarToggle) sidebarToggle.click();
     }
 
+    function toggleZenMode() {
+      body.classList.toggle("reader-zen");
+    }
+
     function adjustReaderFontSize(direction) {
       var currentSize = parseFloat(sizeSlider.value);
       var nextSize = Math.min(
@@ -778,6 +782,10 @@
         case "Tab":
           event.preventDefault();
           toggleSidebar();
+          break;
+        case "z":
+          event.preventDefault();
+          toggleZenMode();
           break;
       }
     }

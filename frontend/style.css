@@ -73,7 +73,10 @@ body {
 }
 
 body.sidebar-collapsed .sidebar-header,
-body.sidebar-collapsed #nav,
+body.sidebar-collapsed #nav {
+  display: none;
+}
+
 body.sidebar-collapsed #sidebar {
   overflow: visible;
 }

@@ -124,7 +124,7 @@
           </div>
         </div>
       </div>
-      <div class="reader-frame-wrap">
+      <div class="reader-frame-stage">
         <div id="reader-page-tools" class="reader-page-tools">
           <button
             id="reader-menu-toggle"
@@ -483,41 +483,39 @@
             </form>
           </div>
         </div>
-        <div class="reader-frame-stage">
-          <div class="reader-nav-zone prev"{{if not .Prev}} hidden{{end}}>
-            <a
-              id="reader-prev-chapter"
-              class="reader-bottom-nav"
-              href="{{if .Prev}}{{.Prev}}{{else}}#{{end}}"
-              aria-label="Previous chapter"
-            >
-              ❮
-            </a>
-          </div>
-          <div class="reader-nav-zone next"{{if not .Next}} hidden{{end}}>
-            <a
-              id="reader-next-chapter"
-              class="reader-bottom-nav"
-              href="{{if .Next}}{{.Next}}{{else}}#{{end}}"
-              aria-label="Next chapter"
-            >
-              ❯
-            </a>
-          </div>
-          <iframe
-            id="reader-frame"
-            class="reader-frame"
-            src="{{.IframeSrc}}"
-            title="{{.CurrentChapter}}"
-          ></iframe>
-          <iframe
-            id="reader-frame-buffer"
-            class="reader-frame reader-frame-buffer"
-            src="{{.IframeSrc}}"
-            title=""
-            tabindex="-1"
-          ></iframe>
+        <div class="reader-nav-zone prev"{{if not .Prev}} hidden{{end}}>
+          <a
+            id="reader-prev-chapter"
+            class="reader-bottom-nav"
+            href="{{if .Prev}}{{.Prev}}{{else}}#{{end}}"
+            aria-label="Previous chapter"
+          >
+            ❮
+          </a>
         </div>
+        <div class="reader-nav-zone next"{{if not .Next}} hidden{{end}}>
+          <a
+            id="reader-next-chapter"
+            class="reader-bottom-nav"
+            href="{{if .Next}}{{.Next}}{{else}}#{{end}}"
+            aria-label="Next chapter"
+          >
+            ❯
+          </a>
+        </div>
+        <iframe
+          id="reader-frame"
+          class="reader-frame"
+          src="{{.IframeSrc}}"
+          title="{{.CurrentChapter}}"
+        ></iframe>
+        <iframe
+          id="reader-frame-buffer"
+          class="reader-frame reader-frame-buffer"
+          src="{{.IframeSrc}}"
+          title=""
+          tabindex="-1"
+        ></iframe>
       </div>
     </main>
     <script type="application/json" id="reader-chapters">{{.Chapters}}</script>

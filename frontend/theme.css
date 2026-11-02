@@ -44,6 +44,9 @@
   --reader-line-height-default: 1.6;
   --reader-padding-top: 3rem;
   --reader-padding-bottom: 4rem;
+  --reader-panel-text-margin-block: 16px;
+  --reader-tools-margin-block-start: 16px;
+  --reader-tools-margin-inline: 18px;
   --reader-min-height: 100vh;
   --reader-selection: var(--mix-blue-35-t);
   --sidebar-toggle-font-size: var(--fs-base);
@@ -335,15 +338,22 @@
   --reader-keyframes-tooltip-drop-from-transform: translate(-50%, -8px);
   --reader-media-max-width-920px-reader-bottom-nav-height: 36px;
   --reader-media-max-width-920px-reader-bottom-nav-width: 36px;
-  --reader-media-max-width-920px-reader-frame-wrap-padding: 16px;
   --reader-media-max-width-920px-reader-nav-zone-next-padding: 0 8px 16px 0;
   --reader-media-max-width-920px-reader-nav-zone-prev-padding: 0 0 16px 8px;
   --reader-media-max-width-920px-reader-nav-zone-width: min(120px, 26%);
-  --reader-media-max-width-920px-reader-page-tools-left: 24px;
-  --reader-media-max-width-920px-reader-page-tools-top: 24px;
+  --reader-media-max-width-920px-reader-page-tools-left: var(
+    --reader-tools-margin-inline
+  );
+  --reader-media-max-width-920px-reader-page-tools-top: var(
+    --reader-tools-margin-block-start
+  );
   --reader-media-max-width-920px-reader-search-input-width: 160px;
-  --reader-media-max-width-920px-reader-search-tools-right: 24px;
-  --reader-media-max-width-920px-reader-search-tools-top: 24px;
+  --reader-media-max-width-920px-reader-search-tools-right: var(
+    --reader-tools-margin-inline
+  );
+  --reader-media-max-width-920px-reader-search-tools-top: var(
+    --reader-tools-margin-block-start
+  );
   --reader-media-max-width-920px-reader-sidebar-border-bottom: 1px solid
     var(--surface1);
   --reader-media-max-width-920px-reader-sidebar-max-height: 42vh;
@@ -380,11 +390,6 @@
   --reader-reader-current-swatch-reader-current-line-reader-current-size-border-radius: 999px;
   --reader-reader-current-swatch-reader-current-line-reader-current-size-height: 26px;
   --reader-reader-current-swatch-reader-current-line-reader-current-size-width: 26px;
-  --reader-reader-frame-border: 1px solid var(--surface0);
-  --reader-reader-frame-border-radius: 12px;
-  --reader-reader-frame-box-shadow: 0 24px 80px rgba(0, 0, 0, 0.2);
-  --reader-reader-frame-min-height: 400px;
-  --reader-reader-frame-wrap-padding: 20px 24px 88px;
   --reader-reader-library-action-after-line-height: 1.2;
   --reader-reader-library-action-after-top: calc(100% + 10px);
   --reader-reader-library-action-after-z-index: 8;
@@ -394,11 +399,6 @@
   --reader-reader-library-action-right: 24px;
   --reader-reader-library-action-top: 16px;
   --reader-reader-library-action-z-index: 4;
-  --reader-reader-main-background: linear-gradient(
-    180deg,
-    var(--mantle),
-    var(--base)
-  );
   --reader-reader-menu-panel-left: calc(100% + 4px);
   --reader-reader-menu-toggle-height: calc(var(--fs-base) * 2);
   --reader-reader-menu-toggle-hover-reader-menu-toggle-open-transform: rotate(
@@ -410,8 +410,8 @@
   --reader-reader-nav-zone-next-padding: 0 24px 24px 0;
   --reader-reader-nav-zone-prev-padding: 0 0 24px 24px;
   --reader-reader-nav-zone-z-index: 3;
-  --reader-reader-page-tools-left: 36px;
-  --reader-reader-page-tools-top: 32px;
+  --reader-reader-page-tools-left: var(--reader-tools-margin-inline);
+  --reader-reader-page-tools-top: var(--reader-tools-margin-block-start);
   --reader-reader-page-tools-z-index: 2;
   --reader-reader-progress-icon-height: 14px;
   --reader-reader-progress-icon-width: 14px;
@@ -449,9 +449,9 @@
   --reader-reader-search-toggle-svg-width: var(--fs-base);
   --reader-reader-search-toggle-width: 48px;
   --reader-reader-search-tools-right: calc(
-    36px + var(--frame-scrollbar-width, 0px)
+    var(--reader-tools-margin-inline) + var(--frame-scrollbar-width, 0px)
   );
-  --reader-reader-search-tools-top: 32px;
+  --reader-reader-search-tools-top: var(--reader-tools-margin-block-start);
   --reader-reader-search-tools-z-index: 2;
   --reader-reader-sidebar-header-border-bottom: 1px solid var(--surface0);
   --reader-reader-sidebar-header-padding: 24px 20px 18px;
@@ -468,6 +468,11 @@
   --reader-reader-toolbar-heading-gap: 10px;
   --reader-reader-toolbar-heading-line-height: 1.25;
   --reader-reader-toolbar-padding: 18px 24px;
+  --reader-reader-toolbar-padding-right: calc(
+    var(--reader-reader-library-action-right) + var(--fs-md) +
+      var(--reader-reader-library-action-padding) +
+      var(--reader-reader-library-action-padding) + 18px
+  );
 }
 
 :root {
