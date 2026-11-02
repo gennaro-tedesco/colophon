@@ -5,6 +5,7 @@ import (
 	"encoding/xml"
 	"errors"
 	"io"
+	"net/url"
 	"path"
 	"path/filepath"
 	"strings"
@@ -74,6 +75,7 @@ type ReaderData struct {
 type TOCEntry struct {
 	Title     string
 	Path      string
+	Fragment  string
 	Children  []TOCEntry
 	Synthetic bool
 }
@@ -277,9 +279,11 @@ func parseNCXTOCTree(r *zip.ReadCloser, pkg opfPackage, opfDir string) []TOCEntr
 func collectNCXEntries(points []ncxNavPoint, basePath string) []TOCEntry {
 	entries := make([]TOCEntry, 0, len(points))
 	for _, point := range points {
+		entryPath, fragment := resolveBookTarget(basePath, strings.TrimSpace(point.Content.Src))
 		entry := TOCEntry{
 			Title:    normalizeTOCLabel(point.NavLabel.Text),
-			Path:     resolveBookPath(basePath, strings.TrimSpace(point.Content.Src)),
+			Path:     entryPath,
+			Fragment: fragment,
 			Children: collectNCXEntries(point.Points, basePath),
 		}
 		if entry.Title == "" && entry.Path == "" && len(entry.Children) == 0 {
@@ -333,7 +337,7 @@ func collectNavItem(item *xhtml.Node, basePath string) TOCEntry {
 		switch child.Data {
 		case "a":
 			entry.Title = normalizeTOCLabel(nodeText(child))
-			entry.Path = resolveBookPath(basePath, strings.TrimSpace(getAttr(child, "", "href")))
+			entry.Path, entry.Fragment = resolveBookTarget(basePath, strings.TrimSpace(getAttr(child, "", "href")))
 		case "span":
 			if entry.Title == "" {
 				entry.Title = normalizeTOCLabel(nodeText(child))
@@ -401,21 +405,26 @@ func nodeText(node *xhtml.Node) string {
 	return strings.Join(parts, " ")
 }
 
-func resolveBookPath(basePath, href string) string {
+func resolveBookTarget(basePath, href string) (string, string) {
 	href = strings.TrimSpace(href)
 	if href == "" {
-		return ""
+		return "", ""
 	}
+	fragment := ""
 	if idx := strings.IndexByte(href, '#'); idx >= 0 {
+		fragment = href[idx+1:]
 		href = href[:idx]
 	}
 	if href == "" {
-		return ""
+		return "", ""
 	}
 	if strings.Contains(href, "://") || strings.HasPrefix(href, "/") {
-		return ""
+		return "", ""
 	}
-	return path.Clean(path.Join(path.Dir(basePath), href))
+	if decoded, err := url.PathUnescape(fragment); err == nil {
+		fragment = decoded
+	}
+	return path.Clean(path.Join(path.Dir(basePath), href)), fragment
 }
 
 func readZipEntry(r *zip.ReadCloser, entry string) ([]byte, error) {
