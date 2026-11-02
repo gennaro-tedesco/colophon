@@ -157,6 +157,12 @@ func ParseReaderData(epubPath string) (ReaderData, error) {
 	}
 	defer r.Close()
 
+	return ParseReaderDataReader(r)
+}
+
+// ParseReaderDataReader extracts spine and table-of-contents data from an
+// already-open EPUB archive.
+func ParseReaderDataReader(r *zip.ReadCloser) (ReaderData, error) {
 	opfPath, err := findOPFPath(r)
 	if err != nil {
 		return ReaderData{}, err

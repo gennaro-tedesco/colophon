@@ -142,15 +142,6 @@ func NewHandler(root string, lib model.Library, fonts []string, theme string) *H
 
 	h := &Handler{theme: theme}
 	mux := http.NewServeMux()
-	mux.HandleFunc(contract.ScriptPath, contract.ServeScript)
-	mux.HandleFunc(contract.ResourcesPath, contract.ServeResources)
-
-	mux.HandleFunc(contract.Routes["library"], func(w http.ResponseWriter, r *http.Request) {
-		w.Header().Set("Content-Type", "application/json")
-		if err := json.NewEncoder(w).Encode(lib); err != nil {
-			return
-		}
-	})
 
 	mux.HandleFunc(contract.Routes["fonts"], func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/json")
@@ -354,9 +345,10 @@ func serveChapterDocument(w http.ResponseWriter, r *http.Request, absEpub, epubR
 		return
 	}
 	defer zr.Close()
+	entries := zipEntryIndex(&zr.Reader)
 
 	chapterPath := book.Spine[chapterIndex]
-	chapterHTML, err := readZipEntry(&zr.Reader, chapterPath)
+	chapterHTML, err := readZipEntry(entries, chapterPath)
 	if err != nil {
 		http.NotFound(w, r)
 		return
@@ -373,7 +365,7 @@ func serveChapterDocument(w http.ResponseWriter, r *http.Request, absEpub, epubR
 		body := findHTMLNode(doc, "body")
 		if body != nil {
 			for _, ci := range contIndices {
-				contHTML, err := readZipEntry(&zr.Reader, book.Spine[ci])
+				contHTML, err := readZipEntry(entries, book.Spine[ci])
 				if err != nil {
 					continue
 				}
@@ -511,15 +503,15 @@ func cleanPathSegment(value string) string {
 	return cleaned
 }
 
-func loadChapterMetadata(r *zip.Reader, spine []string, tocLabels map[string]string) []chapterDoc {
+func loadChapterMetadata(entries zipEntries, spine []string, tocLabels map[string]string) []chapterDoc {
 	chapters := make([]chapterDoc, 0, len(spine))
 	for i, chapterPath := range spine {
 		title := ""
 		if tocLabels != nil {
 			title = normalizeWhitespace(tocLabels[chapterPath])
 		}
-		if title == "" && r != nil {
-			data, err := readZipEntry(r, chapterPath)
+		if title == "" && entries != nil {
+			data, err := readZipEntry(entries, chapterPath)
 			if err == nil {
 				title = extractChapterTitle(data)
 			}
@@ -566,28 +558,19 @@ func (c *readerCache) load(absEpub string) (readerBookData, error) {
 }
 
 func loadReaderBookData(absEpub string) (readerBookData, error) {
-	readerData, err := scanner.ParseReaderData(absEpub)
+	zr, err := zip.OpenReader(absEpub)
+	if err != nil {
+		return readerBookData{}, err
+	}
+	defer zr.Close()
+
+	readerData, err := scanner.ParseReaderDataReader(zr)
 	if err != nil {
 		return readerBookData{}, err
 	}
 
 	labels := flattenTOCLabels(readerData.TOC)
-	var zr *zip.ReadCloser
-	for _, chapterPath := range readerData.Spine {
-		if normalizeWhitespace(labels[chapterPath]) == "" {
-			zr, err = zip.OpenReader(absEpub)
-			if err != nil {
-				return readerBookData{}, err
-			}
-			defer zr.Close()
-			break
-		}
-	}
-	var reader *zip.Reader
-	if zr != nil {
-		reader = &zr.Reader
-	}
-	chapters := loadChapterMetadata(reader, readerData.Spine, labels)
+	chapters := loadChapterMetadata(zipEntryIndex(&zr.Reader), readerData.Spine, labels)
 
 	return readerBookData{
 		Spine:    readerData.Spine,
@@ -625,12 +608,13 @@ func (c *readerCache) search(ctx context.Context, absEpub, query string) ([]read
 		return nil, err
 	}
 	defer zr.Close()
+	entries := zipEntryIndex(&zr.Reader)
 	var matches []readerSearchMatch
 	for i := range entry.book.Spine {
 		if err := ctx.Err(); err != nil {
 			return nil, err
 		}
-		text, err := c.chapterText(entry, &zr.Reader, i)
+		text, err := c.chapterText(entry, entries, i)
 		if err != nil {
 			continue
 		}
@@ -650,7 +634,7 @@ func (c *readerCache) search(ctx context.Context, absEpub, query string) ([]read
 	return matches, nil
 }
 
-func (c *readerCache) chapterText(entry *readerCacheEntry, r *zip.Reader, index int) (string, error) {
+func (c *readerCache) chapterText(entry *readerCacheEntry, entries zipEntries, index int) (string, error) {
 	c.mu.Lock()
 	if index >= len(entry.texts) {
 		c.mu.Unlock()
@@ -664,7 +648,7 @@ func (c *readerCache) chapterText(entry *readerCacheEntry, r *zip.Reader, index 
 	chapterPath := entry.book.Spine[index]
 	c.mu.Unlock()
 
-	data, err := readZipEntry(r, chapterPath)
+	data, err := readZipEntry(entries, chapterPath)
 	if err != nil {
 		return "", err
 	}
@@ -1077,29 +1061,39 @@ func rewriteAssetURL(rawValue, epubRel, chapterPath string) string {
 	return rewritten
 }
 
-func readZipEntry(r *zip.Reader, entry string) ([]byte, error) {
+type zipEntries map[string]*zip.File
+
+func zipEntryIndex(r *zip.Reader) zipEntries {
+	entries := make(zipEntries, len(r.File))
 	for _, f := range r.File {
-		if f.Name != entry {
-			continue
+		if _, exists := entries[f.Name]; !exists {
+			entries[f.Name] = f
 		}
-		if f.CompressedSize64 > maxReaderEntrySize || f.UncompressedSize64 > maxReaderEntrySize {
-			return nil, errors.New("entry exceeds size limit")
-		}
-		rc, err := f.Open()
-		if err != nil {
-			return nil, err
-		}
-		defer rc.Close()
-		data, err := io.ReadAll(io.LimitReader(rc, maxReaderEntrySize+1))
-		if err != nil {
-			return nil, err
-		}
-		if len(data) > maxReaderEntrySize {
-			return nil, errors.New("entry exceeds size limit")
-		}
-		return data, nil
 	}
-	return nil, errors.New("entry not found")
+	return entries
+}
+
+func readZipEntry(entries zipEntries, entry string) ([]byte, error) {
+	f, ok := entries[entry]
+	if !ok {
+		return nil, errors.New("entry not found")
+	}
+	if f.CompressedSize64 > maxReaderEntrySize || f.UncompressedSize64 > maxReaderEntrySize {
+		return nil, errors.New("entry exceeds size limit")
+	}
+	rc, err := f.Open()
+	if err != nil {
+		return nil, err
+	}
+	defer rc.Close()
+	data, err := io.ReadAll(io.LimitReader(rc, maxReaderEntrySize+1))
+	if err != nil {
+		return nil, err
+	}
+	if len(data) > maxReaderEntrySize {
+		return nil, errors.New("entry exceeds size limit")
+	}
+	return data, nil
 }
 
 func findHTMLNode(node *xhtml.Node, name string) *xhtml.Node {

@@ -19,7 +19,6 @@
   const nav = document.getElementById("nav");
   const list = document.getElementById("list");
   const stats = document.getElementById("stats");
-  const logo = document.querySelector(".logo");
   const search = document.getElementById("search");
   const searchScopeEl = document.getElementById("search-scope");
   const searchScopeWrap = document.getElementById("search-scope-wrap");
