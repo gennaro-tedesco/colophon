@@ -6,6 +6,8 @@
   --reader-search-mark: var(--yellow);
   --reader-search-mark-active: var(--mauve);
   --reader-search-mark-text: var(--crust);
+  --reader-scroll-padding-top: 0px;
+  --reader-scroll-padding-bottom: 0px;
 }
 *,
 *::before,
@@ -754,12 +756,15 @@ body.sidebar-collapsed .reader-sidebar {
 }
 .reader-frame {
   position: absolute;
-  top: var(--reader-panel-text-margin-block);
+  top: calc(
+    var(--reader-panel-text-margin-block) + var(--reader-scroll-padding-top)
+  );
   left: 0;
   width: 100%;
   height: calc(
     100% - var(--reader-panel-text-margin-block) -
-      var(--reader-panel-text-margin-block)
+      var(--reader-panel-text-margin-block) - var(--reader-scroll-padding-top) -
+      var(--reader-scroll-padding-bottom)
   );
   border: none;
   background: var(--base);

@@ -355,6 +355,8 @@
         doc.body.style.color = activeFg;
         doc.body.style.lineHeight = activeLh;
         doc.body.style.fontSize = activeSize;
+        doc.body.style.paddingTop = "";
+        doc.body.style.paddingBottom = "";
         doc.body.style.paddingLeft = activePadX;
         doc.body.style.paddingRight = activePadX;
         doc.body.style.fontFamily = fontFamily;
@@ -384,9 +386,16 @@
       applyThemeToFrame(bg, fg, lh, size, padX);
       if (doc) {
         if (paginated) {
+          setScrollingFramePadding("0px", "0px");
           applyFramePagination(doc);
         } else {
+          var bodyStyle = doc.defaultView.getComputedStyle(doc.body);
+          var paddingTop = bodyStyle.paddingTop;
+          var paddingBottom = bodyStyle.paddingBottom;
           resetFramePagination(doc);
+          doc.body.style.paddingTop = "0";
+          doc.body.style.paddingBottom = "0";
+          setScrollingFramePadding(paddingTop, paddingBottom);
         }
         scrollFrameToFraction(doc, fraction);
       }
@@ -406,6 +415,17 @@
       searchMatches.forEach(function (match, idx) {
         applySearchMarkStyle(match, idx === activeSearchIndex, palette, radius);
       });
+    }
+
+    function setScrollingFramePadding(top, bottom) {
+      document.documentElement.style.setProperty(
+        "--reader-scroll-padding-top",
+        top,
+      );
+      document.documentElement.style.setProperty(
+        "--reader-scroll-padding-bottom",
+        bottom,
+      );
     }
 
     function applySwatchPalette(theme) {
