@@ -27,5 +27,5 @@
   --flamingo: #ca4c16;
   --rosewater: #9fabad;
   --reader-backgrounds: var(--base), var(--mantle), var(--crust), var(--surface0), var(--surface1), var(--text);
-  --reader-foregrounds: var(--text), var(--subtext1), var(--subtext0), var(--overlay2), var(--overlay1), var(--base);
+  --reader-foregrounds: #9fabad, #7f8f92, #5f7378, #40565d, #203a43, #001e28;
 }
