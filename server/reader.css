@@ -710,6 +710,27 @@ body.sidebar-collapsed .reader-sidebar {
   outline: var(--reader-reader-choice-active-outline);
   outline-offset: var(--reader-reader-choice-active-outline-offset);
 }
+.reader-paginate-choice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text);
+  background: transparent;
+}
+.reader-paginate-choice svg {
+  width: var(--fs-md);
+  height: var(--fs-md);
+}
+.reader-paginate-icon {
+  display: none;
+  width: var(--fs-md);
+  height: var(--fs-md);
+  margin: 0 auto;
+}
+.reader-paginate-current.is-paginated .reader-paginate-icon-pages,
+.reader-paginate-current:not(.is-paginated) .reader-paginate-icon-scroll {
+  display: block;
+}
 .reader-slider {
   writing-mode: vertical-lr;
   direction: rtl;
