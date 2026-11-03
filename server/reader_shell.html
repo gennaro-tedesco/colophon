@@ -377,6 +377,112 @@
                   </div>
                 </div>
               </div>
+              <div class="reader-control-group" aria-label="Pagination">
+                <span class="reader-control-symbol"
+                  ><svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    width="18"
+                    height="18"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    stroke-width="2"
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                  >
+                    <path d="M12 5v16" />
+                    <path d="M16 13h2" />
+                    <path d="M16 9h2" />
+                    <path
+                      d="M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"
+                    />
+                    <path d="M6 13h2" />
+                    <path d="M6 9h2" /></svg
+                ></span>
+                <div class="reader-control-bubble">
+                  <span
+                    id="reader-paginate-current"
+                    class="reader-current-size reader-paginate-current"
+                  >
+                    <svg
+                      class="reader-paginate-icon reader-paginate-icon-pages"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <rect width="18" height="18" x="3" y="3" rx="2" />
+                      <path d="M12 3v18" />
+                    </svg>
+                    <svg
+                      class="reader-paginate-icon reader-paginate-icon-scroll"
+                      xmlns="http://www.w3.org/2000/svg"
+                      width="18"
+                      height="18"
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                    >
+                      <path d="M12 3v18" />
+                      <path d="m8 7 4-4 4 4" />
+                      <path d="m8 17 4 4 4-4" />
+                    </svg>
+                  </span>
+                  <div class="reader-bubble-menu" aria-label="Pagination">
+                    <button
+                      type="button"
+                      class="reader-swatch-choice reader-paginate-choice"
+                      data-paginate="1"
+                      aria-label="Pages"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <rect width="18" height="18" x="3" y="3" rx="2" />
+                        <path d="M12 3v18" />
+                      </svg>
+                    </button>
+                    <button
+                      type="button"
+                      class="reader-swatch-choice reader-paginate-choice"
+                      data-paginate="0"
+                      aria-label="Scroll"
+                    >
+                      <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        width="18"
+                        height="18"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        stroke-width="2"
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                      >
+                        <path d="M12 3v18" />
+                        <path d="m8 7 4-4 4 4" />
+                        <path d="m8 17 4 4 4-4" />
+                      </svg>
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
           </div>
         </div>
@@ -502,6 +608,15 @@
           >
             ❯
           </a>
+        </div>
+        <div
+          id="reader-chapter-loading"
+          class="reader-chapter-loading"
+          aria-hidden="true"
+          aria-live="polite"
+        >
+          <div class="reader-chapter-loading-spinner" aria-hidden="true"></div>
+          <div class="reader-chapter-loading-title">Loading…</div>
         </div>
         <iframe
           id="reader-frame"

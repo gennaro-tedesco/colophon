@@ -10,6 +10,8 @@
       tooltipChapter: "chapter",
       tooltipBook: "book",
       tooltipLibrary: "library",
+      paginateOn: "Pages",
+      paginateOff: "Scroll",
     },
     de: {
       collapseSidebar: "Seitenleiste einblenden",
@@ -21,6 +23,8 @@
       tooltipChapter: "Kapitel",
       tooltipBook: "Buch",
       tooltipLibrary: "Bibliothek",
+      paginateOn: "Seiten",
+      paginateOff: "Scrollen",
     },
     it: {
       collapseSidebar: "Comprimi barra laterale",
@@ -32,6 +36,8 @@
       tooltipChapter: "capitolo",
       tooltipBook: "libro",
       tooltipLibrary: "libreria",
+      paginateOn: "Pagine",
+      paginateOff: "Scorrimento",
     },
     zh: {
       collapseSidebar: "\u6536\u8d77\u4fa7\u8fb9\u680f",
@@ -43,6 +49,8 @@
       tooltipChapter: "\u7ae0\u8282",
       tooltipBook: "\u4e66\u7c4d",
       tooltipLibrary: "\u4e66\u5e93",
+      paginateOn: "\u5206\u9875",
+      paginateOff: "\u6eda\u52a8",
     },
   };
   var readerLang =
@@ -85,6 +93,7 @@
       document.documentElement.setAttribute("data-theme", readerTheme);
     var readerTitle = body.dataset.readerTitle || "";
     var frameStage = document.querySelector(".reader-frame-stage");
+    var chapterLoading = document.getElementById("reader-chapter-loading");
     var prevChapter = document.getElementById("reader-prev-chapter");
     var frame = document.getElementById("reader-frame");
     var frameBack = document.getElementById("reader-frame-buffer");
@@ -124,6 +133,10 @@
     var searchScopeIcon = document.getElementById("reader-search-scope-icon");
     var bgCurrent = document.getElementById("reader-bg-current");
     var fgCurrent = document.getElementById("reader-fg-current");
+    var paginateCurrent = document.getElementById("reader-paginate-current");
+    var paginateChoices = Array.from(
+      document.querySelectorAll("[data-paginate]"),
+    );
     var lhCurrent = document.getElementById("reader-lh-current");
     var sizeCurrent = document.getElementById("reader-size-current");
     var padCurrent = document.getElementById("reader-pad-current");
@@ -179,13 +192,14 @@
     var lh = readerPreference("lh");
     var size = readerPreference("size");
     var padX = readerPreference("px");
+    var paginated = localStorage.getItem(readerStorageKey("paginate")) === "1";
     var pendingG = false;
     var pendingGTimer = null;
     var searchQuery = "";
     var searchScope =
       sessionStorage.getItem(
         readerStorageKey(Settings.readerSearchScopeSuffix) + encodedPath,
-      ) || "chapter";
+      ) || "book";
     var searchMatches = [];
     var bookSearchMatches = [];
     var activeBookSearchIndex = -1;
@@ -206,8 +220,10 @@
     var nextIndex = -1;
     var currentFragment = "";
     var pendingChapter = -1;
+    var pendingPageTarget = null;
     var bufferReady = false;
     var pendingNavigation = null;
+    var chapterLoadingTimer = null;
     var SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
     var SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
     var SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
@@ -341,6 +357,8 @@
         doc.body.style.color = activeFg;
         doc.body.style.lineHeight = activeLh;
         doc.body.style.fontSize = activeSize;
+        doc.body.style.paddingTop = "";
+        doc.body.style.paddingBottom = "";
         doc.body.style.paddingLeft = activePadX;
         doc.body.style.paddingRight = activePadX;
         doc.body.style.fontFamily = fontFamily;
@@ -365,7 +383,24 @@
     }
 
     function applyTheme() {
+      var doc = frame.contentDocument;
+      var fraction = readerScrollFraction(doc, frameIsPaginated(doc));
       applyThemeToFrame(bg, fg, lh, size, padX);
+      if (doc) {
+        if (paginated) {
+          setScrollingFramePadding("0px", "0px");
+          applyFramePagination(doc);
+        } else {
+          var bodyStyle = doc.defaultView.getComputedStyle(doc.body);
+          var paddingTop = bodyStyle.paddingTop;
+          var paddingBottom = bodyStyle.paddingBottom;
+          resetFramePagination(doc);
+          doc.body.style.paddingTop = "0";
+          doc.body.style.paddingBottom = "0";
+          setScrollingFramePadding(paddingTop, paddingBottom);
+        }
+        scrollFrameToFraction(doc, fraction);
+      }
       document.documentElement.style.setProperty("--reader-shell-fg", fg);
       document.documentElement.style.setProperty("--reader-progress-book", fg);
       document.documentElement.style.setProperty(
@@ -382,6 +417,17 @@
       searchMatches.forEach(function (match, idx) {
         applySearchMarkStyle(match, idx === activeSearchIndex, palette, radius);
       });
+    }
+
+    function setScrollingFramePadding(top, bottom) {
+      document.documentElement.style.setProperty(
+        "--reader-scroll-padding-top",
+        top,
+      );
+      document.documentElement.style.setProperty(
+        "--reader-scroll-padding-bottom",
+        bottom,
+      );
     }
 
     function applySwatchPalette(theme) {
@@ -423,6 +469,10 @@
     function scrollReaderTo(position) {
       var doc = frame.contentDocument;
       if (!doc) return;
+      if (frameIsPaginated(doc)) {
+        scrollPaginatedTo(position);
+        return;
+      }
       var win = doc.defaultView;
       var scrollingEl = doc.scrollingElement || doc.documentElement || doc.body;
       if (!scrollingEl) return;
@@ -444,6 +494,228 @@
       }
       var scrollingEl = doc.scrollingElement || doc.documentElement || doc.body;
       if (scrollingEl) scrollingEl.scrollTop += delta;
+    }
+
+    function frameIsPaginated(doc) {
+      return Boolean(doc && doc.body && doc.body.style.columnWidth);
+    }
+
+    function paginationMetrics(doc) {
+      var win = doc.defaultView;
+      if (!win) return { gap: 0, column: 1, step: 1 };
+      var width = win.innerWidth || doc.documentElement.clientWidth || 0;
+      var bodyStyle = doc.body ? win.getComputedStyle(doc.body) : null;
+      var padLeft = bodyStyle ? parseFloat(bodyStyle.paddingLeft) || 0 : 0;
+      var padRight = bodyStyle ? parseFloat(bodyStyle.paddingRight) || 0 : 0;
+      var content = Math.max(width - padLeft - padRight, 0);
+      var gap = Math.min(Math.min(padLeft, padRight), content);
+      var column = Math.max((content - gap) / 2, 1);
+      return { gap: gap, column: column, step: 2 * (column + gap) };
+    }
+
+    function setPaginationScrollbar(doc, hidden) {
+      var id = "reader-pagination-style";
+      var styleNode = doc.getElementById(id);
+      if (hidden) {
+        if (!styleNode) {
+          styleNode = doc.createElement("style");
+          styleNode.id = id;
+          (doc.head || doc.documentElement).appendChild(styleNode);
+        }
+        styleNode.textContent =
+          "html,body{scrollbar-width:none}html::-webkit-scrollbar,body::-webkit-scrollbar{display:none}";
+        return;
+      }
+      if (styleNode) styleNode.parentNode.removeChild(styleNode);
+    }
+
+    function resetPaginationSpacer(doc) {
+      var spacer = doc.getElementById("reader-pagination-spacer");
+      if (spacer) spacer.parentNode.removeChild(spacer);
+    }
+
+    function addPaginationSpacer(doc) {
+      resetPaginationSpacer(doc);
+      var spacer = doc.createElement("div");
+      spacer.id = "reader-pagination-spacer";
+      spacer.setAttribute("aria-hidden", "true");
+      spacer.style.setProperty("display", "block", "important");
+      spacer.style.setProperty("break-before", "column", "important");
+      spacer.style.setProperty(
+        "-webkit-column-break-before",
+        "always",
+        "important",
+      );
+      spacer.style.setProperty("width", "1px", "important");
+      spacer.style.setProperty("height", "1px", "important");
+      spacer.style.setProperty("margin", "0", "important");
+      spacer.style.setProperty("padding", "0", "important");
+      doc.body.appendChild(spacer);
+    }
+
+    function applyFramePagination(doc) {
+      if (!doc || !doc.body) return;
+      var win = doc.defaultView;
+      setPaginationScrollbar(doc, true);
+      var width =
+        (win && win.innerWidth) || doc.documentElement.clientWidth || 0;
+      var height =
+        (win && win.innerHeight) || doc.documentElement.clientHeight || 0;
+      if (width <= 0 || height <= 0) return;
+      var metrics = paginationMetrics(doc);
+      var style = doc.body.style;
+      style.setProperty("width", width + "px", "important");
+      style.setProperty("height", height + "px", "important");
+      style.setProperty("max-height", height + "px", "important");
+      style.setProperty("max-width", "none", "important");
+      style.setProperty("min-height", "0", "important");
+      style.setProperty("margin", "0", "important");
+      style.setProperty("box-sizing", "border-box", "important");
+      style.setProperty("overflow-x", "auto", "important");
+      style.setProperty("overflow-y", "hidden", "important");
+      style.setProperty("column-count", "auto", "important");
+      style.setProperty("column-fill", "auto", "important");
+      style.setProperty("column-gap", metrics.gap + "px", "important");
+      style.setProperty("column-width", metrics.column + "px", "important");
+      doc.documentElement.style.setProperty(
+        "height",
+        height + "px",
+        "important",
+      );
+      doc.documentElement.style.setProperty(
+        "max-height",
+        height + "px",
+        "important",
+      );
+      doc.documentElement.style.setProperty(
+        "overflow-y",
+        "hidden",
+        "important",
+      );
+      addPaginationSpacer(doc);
+      doc.body.scrollTop = 0;
+    }
+
+    function resetFramePagination(doc) {
+      if (!doc || !doc.body) return;
+      setPaginationScrollbar(doc, false);
+      resetPaginationSpacer(doc);
+      var style = doc.body.style;
+      style.width = "";
+      style.height = "";
+      style.maxHeight = "";
+      style.maxWidth = "";
+      style.minHeight = "";
+      style.margin = "";
+      style.boxSizing = "";
+      style.overflowX = "";
+      style.overflowY = "";
+      style.columnCount = "";
+      style.columnFill = "";
+      style.columnGap = "";
+      style.columnWidth = "";
+      doc.documentElement.style.height = "";
+      doc.documentElement.style.maxHeight = "";
+      doc.documentElement.style.overflowY = "";
+    }
+
+    function paginatedScroller(doc) {
+      return doc && doc.body;
+    }
+
+    function paginatedMaxLeft(doc) {
+      var scrollingEl = paginatedScroller(doc);
+      if (!scrollingEl) return 0;
+      var maxLeft = Math.max(
+        scrollingEl.scrollWidth - scrollingEl.clientWidth,
+        0,
+      );
+      var step = paginationMetrics(doc).step;
+      if (step <= 0) return 0;
+      return Math.min(Math.floor((maxLeft + 1) / step) * step, maxLeft);
+    }
+
+    function readerScrollFraction(doc, paginatedLayout) {
+      if (!doc) return 0;
+      var win = doc.defaultView;
+      var scrollingEl = doc.scrollingElement || doc.documentElement;
+      if (!scrollingEl) return 0;
+      if (paginatedLayout) {
+        scrollingEl = paginatedScroller(doc);
+        if (!scrollingEl) return 0;
+        var maxLeft = paginatedMaxLeft(doc);
+        var left = scrollingEl.scrollLeft || 0;
+        return maxLeft > 0 ? Math.min(Math.max(left / maxLeft, 0), 1) : 0;
+      }
+      var maxTop = Math.max(
+        scrollingEl.scrollHeight - scrollingEl.clientHeight,
+        0,
+      );
+      var top = (win && win.scrollY) || scrollingEl.scrollTop || 0;
+      return maxTop > 0 ? Math.min(Math.max(top / maxTop, 0), 1) : 0;
+    }
+
+    function scrollFrameToFraction(doc, fraction) {
+      if (!doc) return;
+      var win = doc.defaultView;
+      var scrollingEl = doc.scrollingElement || doc.documentElement;
+      if (!win || !scrollingEl) return;
+      if (frameIsPaginated(doc)) {
+        scrollingEl = paginatedScroller(doc);
+        if (!scrollingEl) return;
+        var maxLeft = paginatedMaxLeft(doc);
+        var step = paginationMetrics(doc).step;
+        var left =
+          fraction > 0.999 || step <= 0
+            ? maxLeft
+            : Math.floor((fraction * maxLeft) / step) * step;
+        scrollingEl.scrollTo({ left: Math.min(left, maxLeft), top: 0 });
+        return;
+      }
+      var maxTop = Math.max(
+        scrollingEl.scrollHeight - scrollingEl.clientHeight,
+        0,
+      );
+      win.scrollTo({ left: 0, top: fraction * maxTop });
+    }
+
+    function scrollPaginatedTo(position) {
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      var scrollingEl = paginatedScroller(doc);
+      if (!scrollingEl) return;
+      var maxLeft = paginatedMaxLeft(doc);
+      scrollingEl.scrollTo({
+        left: position === "end" ? maxLeft : 0,
+        top: 0,
+      });
+    }
+
+    function turnPage(direction) {
+      var doc = frame.contentDocument;
+      if (!doc) return;
+      var scrollingEl = paginatedScroller(doc);
+      if (!scrollingEl) return;
+      var maxLeft = paginatedMaxLeft(doc);
+      var left = scrollingEl.scrollLeft || 0;
+      var step = paginationMetrics(doc).step;
+      if (direction > 0) {
+        if (left >= maxLeft - 1) {
+          if (nextIndex < 0) return;
+          pendingPageTarget = "start";
+          goToChapter(nextIndex);
+          return;
+        }
+        scrollingEl.scrollTo({ left: Math.min(left + step, maxLeft), top: 0 });
+        return;
+      }
+      if (left <= 1) {
+        if (prevIndex < 0) return;
+        pendingPageTarget = "end";
+        goToChapter(prevIndex);
+        return;
+      }
+      scrollingEl.scrollTo({ left: Math.max(left - step, 0), top: 0 });
     }
 
     function chapterShellURL(index, fragment) {
@@ -481,6 +753,24 @@
 
     function goToChapter(index) {
       showChapter(index, "", true);
+    }
+
+    function startChapterLoading() {
+      stopChapterLoading();
+      if (!chapterLoading) return;
+      chapterLoadingTimer = setTimeout(function () {
+        chapterLoadingTimer = null;
+        chapterLoading.classList.add("visible");
+        chapterLoading.setAttribute("aria-hidden", "false");
+      }, Settings.readerChapterLoadingDelay);
+    }
+
+    function stopChapterLoading() {
+      clearTimeout(chapterLoadingTimer);
+      chapterLoadingTimer = null;
+      if (!chapterLoading) return;
+      chapterLoading.classList.remove("visible");
+      chapterLoading.setAttribute("aria-hidden", "true");
     }
 
     function markActiveTOC(index, fragment) {
@@ -527,8 +817,27 @@
       var target =
         doc.getElementById(fragment) || doc.getElementsByName(fragment)[0];
       if (!target) return false;
-      target.scrollIntoView();
+      if (frameIsPaginated(doc)) {
+        scrollPaginatedElementIntoView(doc, target);
+      } else {
+        target.scrollIntoView();
+      }
       return true;
+    }
+
+    function scrollPaginatedElementIntoView(doc, target, behavior) {
+      var scrollingEl = paginatedScroller(doc);
+      var step = paginationMetrics(doc).step;
+      if (!scrollingEl || step <= 0) return;
+      var maxLeft = paginatedMaxLeft(doc);
+      var targetLeft =
+        (scrollingEl.scrollLeft || 0) + target.getBoundingClientRect().left;
+      var left = Math.floor(targetLeft / step) * step;
+      scrollingEl.scrollTo({
+        left: Math.min(left, maxLeft),
+        top: 0,
+        behavior: behavior,
+      });
     }
 
     function updateActiveTOCFromFrame() {
@@ -536,7 +845,10 @@
       var doc = frame.contentDocument;
       var win = doc.defaultView;
       if (!win) return;
-      var threshold = Math.min(win.innerHeight * 0.25, 160);
+      var horizontal = frameIsPaginated(doc);
+      var threshold = horizontal
+        ? Math.max(win.innerWidth * 0.5, 1)
+        : Math.min(win.innerHeight * 0.25, 160);
       var fragment = "";
       toc.querySelectorAll("a[data-toc-chapter]").forEach(function (link) {
         if (Number(link.dataset.tocChapter) !== currentIndex) return;
@@ -544,7 +856,10 @@
         if (!candidate) return;
         var target =
           doc.getElementById(candidate) || doc.getElementsByName(candidate)[0];
-        if (target && target.getBoundingClientRect().top <= threshold) {
+        if (!target) return;
+        var rect = target.getBoundingClientRect();
+        var position = horizontal ? rect.left : rect.top;
+        if (position <= threshold) {
           fragment = candidate;
         }
       });
@@ -603,6 +918,7 @@
       incoming.classList.remove("reader-frame-buffer");
       outgoing.classList.add("reader-frame-buffer");
       if (focusWasInFrame) incoming.contentWindow.focus();
+      stopChapterLoading();
       return true;
     }
 
@@ -641,8 +957,10 @@
         scrollToFragment(currentDoc, currentFragment)
       ) {
         pendingChapter = -1;
+        stopChapterLoading();
       } else {
         pendingChapter = index;
+        startChapterLoading();
         var src = chapterDocURL(index, fragment);
         if (
           frameBack.contentDocument &&
@@ -832,12 +1150,20 @@
         case "ArrowDown":
         case "j":
           event.preventDefault();
-          scrollReaderBy(Settings.readerScrollStep);
+          if (paginated) {
+            turnPage(1);
+          } else {
+            scrollReaderBy(Settings.readerScrollStep);
+          }
           break;
         case "ArrowUp":
         case "k":
           event.preventDefault();
-          scrollReaderBy(-Settings.readerScrollStep);
+          if (paginated) {
+            turnPage(-1);
+          } else {
+            scrollReaderBy(-Settings.readerScrollStep);
+          }
           break;
         case "ArrowRight":
         case "l":
@@ -882,6 +1208,7 @@
         function (event) {
           if (!event.deltaY) return;
           event.preventDefault();
+          if (paginated) return;
           win.scrollBy({ top: event.deltaY });
         },
         { passive: false },
@@ -1116,7 +1443,12 @@
       });
       var activeMatch = searchMatches[activeSearchIndex];
       if (activeMatch && typeof activeMatch.scrollIntoView === "function") {
-        activeMatch.scrollIntoView({ block: "center", behavior: "smooth" });
+        var doc = activeMatch.ownerDocument;
+        if (frameIsPaginated(doc)) {
+          scrollPaginatedElementIntoView(doc, activeMatch);
+        } else {
+          activeMatch.scrollIntoView({ block: "center", behavior: "smooth" });
+        }
       }
       updateSearchUI();
     }
@@ -1267,6 +1599,20 @@
       openMenu();
     }
 
+    function updatePaginationUI() {
+      if (paginateCurrent) {
+        paginateCurrent.classList.toggle("is-paginated", paginated);
+      }
+      paginateChoices.forEach(function (choice) {
+        var isPages = choice.dataset.paginate === "1";
+        choice.classList.toggle("reader-choice-active", isPages === paginated);
+        choice.setAttribute(
+          "aria-label",
+          rt(isPages ? "paginateOn" : "paginateOff"),
+        );
+      });
+    }
+
     function openSearch(shouldFocus) {
       if (!searchPanel || !searchTools) return;
       var wasOpen = searchPanel.classList.contains("open");
@@ -1289,6 +1635,7 @@
       searchPanel.classList.remove("open");
       searchTools.classList.remove("open");
       if (searchToggle) searchToggle.classList.remove("open");
+      if (searchInput) searchInput.blur();
       clearSearchHighlights();
     }
 
@@ -1425,24 +1772,34 @@
       var win = doc.defaultView;
       var docEl = doc.documentElement;
       var bodyEl = doc.body;
-      var scrollTop =
-        (win && (win.scrollY || win.pageYOffset)) ||
-        (docEl && docEl.scrollTop) ||
-        (bodyEl && bodyEl.scrollTop) ||
-        0;
-      var clientHeight =
-        (win && win.innerHeight) ||
-        (docEl && docEl.clientHeight) ||
-        (bodyEl && bodyEl.clientHeight) ||
-        0;
-      var scrollHeight = Math.max(
-        (docEl && docEl.scrollHeight) || 0,
-        (bodyEl && bodyEl.scrollHeight) || 0,
-        (doc.scrollingElement && doc.scrollingElement.scrollHeight) || 0,
-      );
-      var scrollable = Math.max(scrollHeight - clientHeight, 0);
+      var scrollable;
+      var scrolled;
+      if (frameIsPaginated(doc)) {
+        var pageScroller = paginatedScroller(doc);
+        scrolled = (pageScroller && pageScroller.scrollLeft) || 0;
+        scrollable = paginatedMaxLeft(doc);
+      } else {
+        scrolled =
+          (win && (win.scrollY || win.pageYOffset)) ||
+          (docEl && docEl.scrollTop) ||
+          (bodyEl && bodyEl.scrollTop) ||
+          0;
+        var scrollHeight = Math.max(
+          (docEl && docEl.scrollHeight) || 0,
+          (bodyEl && bodyEl.scrollHeight) || 0,
+          (doc.scrollingElement && doc.scrollingElement.scrollHeight) || 0,
+        );
+        scrollable = Math.max(
+          scrollHeight -
+            ((win && win.innerHeight) ||
+              (docEl && docEl.clientHeight) ||
+              (bodyEl && bodyEl.clientHeight) ||
+              0),
+          0,
+        );
+      }
       var chapterFraction =
-        scrollable > 0 ? Math.min(Math.max(scrollTop / scrollable, 0), 1) : 1;
+        scrollable > 0 ? Math.min(Math.max(scrolled / scrollable, 0), 1) : 1;
       var chapterProgress = chapterFraction * 100;
       var bookProgress =
         ((currentIndex + chapterFraction) / chapterCount) * 100;
@@ -1472,6 +1829,9 @@
         capture: true,
       });
       win.addEventListener("resize", scheduleReaderProgress);
+      win.addEventListener("resize", function () {
+        if (paginated) requestApplyTheme();
+      });
       frameScrollBound = true;
       updateReaderProgress();
       updateActiveTOCFromFrame();
@@ -1487,6 +1847,12 @@
       currentFragment = fragmentFromURL(doc.URL);
       applyTheme();
       scrollToFragment(doc, currentFragment);
+      if (pendingPageTarget === "end") {
+        scrollPaginatedTo("end");
+      } else if (pendingPageTarget === "start" && frameIsPaginated(doc)) {
+        scrollPaginatedTo("start");
+      }
+      pendingPageTarget = null;
       var scrollbarWidth =
         frame.contentWindow.innerWidth -
         frame.contentDocument.documentElement.clientWidth;
@@ -1596,7 +1962,24 @@
       });
       group.addEventListener("mouseleave", function () {
         closeBubble(bubble);
-        if (menuPanel.classList.contains("open")) scheduleHide();
+      });
+    });
+
+    paginateChoices.forEach(function (choice) {
+      choice.addEventListener("mousedown", function (event) {
+        event.stopPropagation();
+      });
+      choice.addEventListener("click", function (event) {
+        event.stopPropagation();
+        paginated = choice.dataset.paginate === "1";
+        localStorage.setItem(
+          readerStorageKey("paginate"),
+          paginated ? "1" : "0",
+        );
+        updatePaginationUI();
+        applyTheme();
+        choice.blur();
+        scheduleHide();
       });
     });
 
@@ -1617,6 +2000,9 @@
     pageTools.addEventListener("mouseenter", function () {
       clearTimeout(hideTimer);
       if (!menuPanel.classList.contains("open")) queueOpenMenu();
+    });
+    pageTools.addEventListener("mousemove", function () {
+      clearTimeout(hideTimer);
     });
     pageTools.addEventListener("mouseleave", function () {
       if (menuPanel.classList.contains("open")) scheduleHide();
@@ -1684,6 +2070,7 @@
     }
 
     applySwatchPalette(readerTheme);
+    updatePaginationUI();
     loadPersistedSearchState();
     updateSearchScopeUI();
     if (searchForm) {
@@ -1738,14 +2125,15 @@
         }
         if (event.key === "Escape") {
           event.preventDefault();
-          searchInput.value = "";
-          if (searchScope === "book") {
-            bookSearchMatches = [];
-            activeBookSearchIndex = -1;
-            runBookSearch("");
+          if (searchInput.value.trim()) {
+            searchInput.value = "";
+            if (searchScope === "book") {
+              runBookSearch("");
+            } else {
+              runSearch("");
+            }
             return;
           }
-          runSearch("");
           closeSearch();
         }
       });
@@ -1818,6 +2206,7 @@
     updateSearchUI();
     frame.addEventListener("load", onFrameLoad);
     frameBack.addEventListener("load", onFrameLoad);
+    frameBack.addEventListener("error", stopChapterLoading);
     bufferReady = true;
     initSidebarResize();
     bindReaderShortcuts();
