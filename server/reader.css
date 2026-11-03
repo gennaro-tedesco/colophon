@@ -716,10 +716,19 @@ body.sidebar-collapsed .reader-sidebar {
   justify-content: center;
   color: var(--text);
   background: transparent;
+  line-height: 0;
 }
 .reader-paginate-choice svg {
+  display: block;
   width: var(--fs-md);
   height: var(--fs-md);
+}
+.reader-paginate-current {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0;
+  line-height: 0;
 }
 .reader-paginate-icon {
   display: none;

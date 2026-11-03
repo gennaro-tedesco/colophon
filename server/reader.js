@@ -507,6 +507,30 @@
       if (styleNode) styleNode.parentNode.removeChild(styleNode);
     }
 
+    function resetPaginationSpacer(doc) {
+      var spacer = doc.getElementById("reader-pagination-spacer");
+      if (spacer) spacer.parentNode.removeChild(spacer);
+    }
+
+    function addPaginationSpacer(doc) {
+      resetPaginationSpacer(doc);
+      var spacer = doc.createElement("div");
+      spacer.id = "reader-pagination-spacer";
+      spacer.setAttribute("aria-hidden", "true");
+      spacer.style.setProperty("display", "block", "important");
+      spacer.style.setProperty("break-before", "column", "important");
+      spacer.style.setProperty(
+        "-webkit-column-break-before",
+        "always",
+        "important",
+      );
+      spacer.style.setProperty("width", "1px", "important");
+      spacer.style.setProperty("height", "1px", "important");
+      spacer.style.setProperty("margin", "0", "important");
+      spacer.style.setProperty("padding", "0", "important");
+      doc.body.appendChild(spacer);
+    }
+
     function applyFramePagination(doc) {
       if (!doc || !doc.body) return;
       var win = doc.defaultView;
@@ -546,12 +570,14 @@
         "hidden",
         "important",
       );
+      addPaginationSpacer(doc);
       doc.body.scrollTop = 0;
     }
 
     function resetFramePagination(doc) {
       if (!doc || !doc.body) return;
       setPaginationScrollbar(doc, false);
+      resetPaginationSpacer(doc);
       var style = doc.body.style;
       style.width = "";
       style.height = "";
@@ -575,6 +601,18 @@
       return doc && doc.body;
     }
 
+    function paginatedMaxLeft(doc) {
+      var scrollingEl = paginatedScroller(doc);
+      if (!scrollingEl) return 0;
+      var maxLeft = Math.max(
+        scrollingEl.scrollWidth - scrollingEl.clientWidth,
+        0,
+      );
+      var step = paginationMetrics(doc).step;
+      if (step <= 0) return 0;
+      return Math.min(Math.floor((maxLeft + 1) / step) * step, maxLeft);
+    }
+
     function readerScrollFraction(doc, paginatedLayout) {
       if (!doc) return 0;
       var win = doc.defaultView;
@@ -583,10 +621,7 @@
       if (paginatedLayout) {
         scrollingEl = paginatedScroller(doc);
         if (!scrollingEl) return 0;
-        var maxLeft = Math.max(
-          scrollingEl.scrollWidth - scrollingEl.clientWidth,
-          0,
-        );
+        var maxLeft = paginatedMaxLeft(doc);
         var left = scrollingEl.scrollLeft || 0;
         return maxLeft > 0 ? Math.min(Math.max(left / maxLeft, 0), 1) : 0;
       }
@@ -606,10 +641,7 @@
       if (frameIsPaginated(doc)) {
         scrollingEl = paginatedScroller(doc);
         if (!scrollingEl) return;
-        var maxLeft = Math.max(
-          scrollingEl.scrollWidth - scrollingEl.clientWidth,
-          0,
-        );
+        var maxLeft = paginatedMaxLeft(doc);
         var step = paginationMetrics(doc).step;
         var left =
           fraction > 0.999 || step <= 0
@@ -630,10 +662,7 @@
       if (!doc) return;
       var scrollingEl = paginatedScroller(doc);
       if (!scrollingEl) return;
-      var maxLeft = Math.max(
-        scrollingEl.scrollWidth - scrollingEl.clientWidth,
-        0,
-      );
+      var maxLeft = paginatedMaxLeft(doc);
       scrollingEl.scrollTo({
         left: position === "end" ? maxLeft : 0,
         top: 0,
@@ -645,10 +674,7 @@
       if (!doc) return;
       var scrollingEl = paginatedScroller(doc);
       if (!scrollingEl) return;
-      var maxLeft = Math.max(
-        scrollingEl.scrollWidth - scrollingEl.clientWidth,
-        0,
-      );
+      var maxLeft = paginatedMaxLeft(doc);
       var left = scrollingEl.scrollLeft || 0;
       var step = paginationMetrics(doc).step;
       if (direction > 0) {
@@ -763,10 +789,7 @@
       var scrollingEl = paginatedScroller(doc);
       var step = paginationMetrics(doc).step;
       if (!scrollingEl || step <= 0) return;
-      var maxLeft = Math.max(
-        scrollingEl.scrollWidth - scrollingEl.clientWidth,
-        0,
-      );
+      var maxLeft = paginatedMaxLeft(doc);
       var targetLeft =
         (scrollingEl.scrollLeft || 0) + target.getBoundingClientRect().left;
       var left = Math.floor(targetLeft / step) * step;
@@ -1711,11 +1734,7 @@
       if (frameIsPaginated(doc)) {
         var pageScroller = paginatedScroller(doc);
         scrolled = (pageScroller && pageScroller.scrollLeft) || 0;
-        scrollable = Math.max(
-          ((pageScroller && pageScroller.scrollWidth) || 0) -
-            ((pageScroller && pageScroller.clientWidth) || 0),
-          0,
-        );
+        scrollable = paginatedMaxLeft(doc);
       } else {
         scrolled =
           (win && (win.scrollY || win.pageYOffset)) ||
