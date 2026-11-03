@@ -271,12 +271,6 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 	}
 
 	tocLabels := flattenTOCLabels(book.TOC)
-	isContinuation := make(map[int]bool)
-	for _, contIndices := range spineContinuations(book.Spine, book.TOC) {
-		for _, ci := range contIndices {
-			isContinuation[ci] = true
-		}
-	}
 	chapters := make([]readerChapterMeta, len(book.Chapters))
 	for i := range book.Chapters {
 		chapterTitle := fallbackChapterTitle(book.Chapters[i].Title, i)
@@ -285,8 +279,8 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 		}
 		chapters[i] = readerChapterMeta{
 			Title: chapterTitle,
-			Prev:  adjacentChapter(isContinuation, i, len(book.Chapters), -1),
-			Next:  adjacentChapter(isContinuation, i, len(book.Chapters), 1),
+			Prev:  adjacentChapter(i, len(book.Chapters), -1),
+			Next:  adjacentChapter(i, len(book.Chapters), 1),
 		}
 	}
 	chaptersJSON, _ := json.Marshal(chapters)
@@ -360,33 +354,6 @@ func serveChapterDocument(w http.ResponseWriter, r *http.Request, absEpub, epubR
 		return
 	}
 	rewriteDocumentLinks(doc, epubRel, chapterPath, book.Spine)
-
-	if contIndices := spineContinuations(book.Spine, book.TOC)[chapterIndex]; len(contIndices) > 0 {
-		body := findHTMLNode(doc, "body")
-		if body != nil {
-			for _, ci := range contIndices {
-				contHTML, err := readZipEntry(entries, book.Spine[ci])
-				if err != nil {
-					continue
-				}
-				contDoc, err := xhtml.Parse(bytes.NewReader(contHTML))
-				if err != nil {
-					continue
-				}
-				rewriteDocumentLinks(contDoc, epubRel, book.Spine[ci], book.Spine)
-				contBody := findHTMLNode(contDoc, "body")
-				if contBody == nil {
-					continue
-				}
-				for child := contBody.FirstChild; child != nil; {
-					next := child.NextSibling
-					contBody.RemoveChild(child)
-					body.AppendChild(child)
-					child = next
-				}
-			}
-		}
-	}
 
 	injectReaderBaseline(doc)
 	var docBuf bytes.Buffer
@@ -756,30 +723,6 @@ func attachSpineContinuations(entries []scanner.TOCEntry, spine []string) []scan
 		})
 	}
 	return cloned
-}
-
-func spineContinuations(spine []string, toc []scanner.TOCEntry) map[int][]int {
-	primaryPaths := make(map[string]bool)
-	collectTOCPaths(toc, primaryPaths)
-	result := make(map[int][]int)
-	lastPrimary := -1
-	for i, p := range spine {
-		if primaryPaths[p] {
-			lastPrimary = i
-		} else if lastPrimary >= 0 {
-			result[lastPrimary] = append(result[lastPrimary], i)
-		}
-	}
-	return result
-}
-
-func collectTOCPaths(entries []scanner.TOCEntry, paths map[string]bool) {
-	for _, entry := range entries {
-		if entry.Path != "" {
-			paths[entry.Path] = true
-		}
-		collectTOCPaths(entry.Children, paths)
-	}
 }
 
 func renderTOCEntries(out *strings.Builder, entries []scanner.TOCEntry, indexByPath map[string]int, epubRel, currentPath, currentFragment string) bool {
@@ -1153,13 +1096,12 @@ func fallbackChapterTitle(value string, index int) string {
 	return "Chapter " + strconv.Itoa(index+1)
 }
 
-func adjacentChapter(isContinuation map[int]bool, index, total, step int) int {
-	for i := index + step; i >= 0 && i < total; i += step {
-		if !isContinuation[i] {
-			return i
-		}
+func adjacentChapter(index, total, step int) int {
+	adjacent := index + step
+	if adjacent < 0 || adjacent >= total {
+		return -1
 	}
-	return -1
+	return adjacent
 }
 
 func readerShellURL(epubRel string, chapter int, fragment string) string {

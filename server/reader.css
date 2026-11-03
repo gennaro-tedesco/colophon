@@ -403,6 +403,42 @@ body.sidebar-collapsed .reader-sidebar {
   min-height: 0;
   width: 100%;
 }
+.reader-chapter-loading {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  display: none;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--library-scan-loading-gap);
+  padding: var(--library-scan-loading-padding);
+  color: var(--subtext0);
+  text-align: center;
+  background: var(--base);
+  pointer-events: none;
+}
+.reader-chapter-loading.visible {
+  display: flex;
+}
+.reader-chapter-loading-spinner {
+  width: var(--library-scan-loading-spinner-width);
+  height: var(--library-scan-loading-spinner-height);
+  border-radius: var(--library-scan-loading-spinner-border-radius);
+  border: 2px solid var(--surface1);
+  border-top-color: var(--teal);
+  animation: reader-loading-spin var(--motion-spinner) linear infinite;
+}
+.reader-chapter-loading-title {
+  font-family: var(--font-serif);
+  font-size: var(--fs-md);
+  color: var(--text);
+}
+@keyframes reader-loading-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 .reader-page-tools {
   position: absolute;
   top: var(--reader-reader-page-tools-top);

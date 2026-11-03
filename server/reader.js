@@ -93,6 +93,7 @@
       document.documentElement.setAttribute("data-theme", readerTheme);
     var readerTitle = body.dataset.readerTitle || "";
     var frameStage = document.querySelector(".reader-frame-stage");
+    var chapterLoading = document.getElementById("reader-chapter-loading");
     var prevChapter = document.getElementById("reader-prev-chapter");
     var frame = document.getElementById("reader-frame");
     var frameBack = document.getElementById("reader-frame-buffer");
@@ -222,6 +223,7 @@
     var pendingPageTarget = null;
     var bufferReady = false;
     var pendingNavigation = null;
+    var chapterLoadingTimer = null;
     var SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
     var SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
     var SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
@@ -753,6 +755,24 @@
       showChapter(index, "", true);
     }
 
+    function startChapterLoading() {
+      stopChapterLoading();
+      if (!chapterLoading) return;
+      chapterLoadingTimer = setTimeout(function () {
+        chapterLoadingTimer = null;
+        chapterLoading.classList.add("visible");
+        chapterLoading.setAttribute("aria-hidden", "false");
+      }, Settings.readerChapterLoadingDelay);
+    }
+
+    function stopChapterLoading() {
+      clearTimeout(chapterLoadingTimer);
+      chapterLoadingTimer = null;
+      if (!chapterLoading) return;
+      chapterLoading.classList.remove("visible");
+      chapterLoading.setAttribute("aria-hidden", "true");
+    }
+
     function markActiveTOC(index, fragment) {
       if (!toc) return;
       var links = Array.from(toc.querySelectorAll("a[data-toc-chapter]"));
@@ -898,6 +918,7 @@
       incoming.classList.remove("reader-frame-buffer");
       outgoing.classList.add("reader-frame-buffer");
       if (focusWasInFrame) incoming.contentWindow.focus();
+      stopChapterLoading();
       return true;
     }
 
@@ -936,8 +957,10 @@
         scrollToFragment(currentDoc, currentFragment)
       ) {
         pendingChapter = -1;
+        stopChapterLoading();
       } else {
         pendingChapter = index;
+        startChapterLoading();
         var src = chapterDocURL(index, fragment);
         if (
           frameBack.contentDocument &&
@@ -2183,6 +2206,7 @@
     updateSearchUI();
     frame.addEventListener("load", onFrameLoad);
     frameBack.addEventListener("load", onFrameLoad);
+    frameBack.addEventListener("error", stopChapterLoading);
     bufferReady = true;
     initSidebarResize();
     bindReaderShortcuts();
