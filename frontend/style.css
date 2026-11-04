@@ -995,6 +995,8 @@ body.sidebar-collapsed #sidebar {
 
 #help-modal {
   width: var(--library-help-modal-width);
+  max-height: var(--library-help-modal-max-height);
+  overflow: hidden;
   background: var(--mantle);
   border: var(--library-help-modal-border);
   border-radius: var(--library-help-modal-border-radius);
@@ -1017,7 +1019,35 @@ body.sidebar-collapsed #sidebar {
   align-items: center;
   justify-content: space-between;
   padding: var(--library-help-header-padding);
+}
+
+#help-tabs {
+  display: flex;
+  justify-content: center;
+  gap: var(--library-help-tabs-gap);
+  padding: var(--library-help-tabs-padding);
   border-bottom: var(--library-help-header-border-bottom);
+}
+
+.help-tab {
+  background: none;
+  border: none;
+  border-bottom: 2px solid transparent;
+  color: var(--subtext0);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  cursor: pointer;
+  padding: var(--library-help-tab-padding);
+  margin-bottom: -1px;
+}
+
+.help-tab:hover {
+  color: var(--text);
+}
+
+.help-tab.is-active {
+  color: var(--blue);
+  border-bottom-color: var(--blue);
 }
 
 #prefs-title {
@@ -1069,7 +1099,13 @@ body.sidebar-collapsed #sidebar {
   gap: var(--library-prefs-body-gap);
 }
 
-#help-body {
+#help-body,
+#help-reader-body {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: thin;
+  scrollbar-color: var(--surface1) transparent;
   padding: var(--library-help-body-padding);
   display: flex;
   flex-direction: column;

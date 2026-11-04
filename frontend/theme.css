@@ -229,9 +229,13 @@
   --library-help-keys-letter-spacing: 0.04em;
   --library-help-modal-border: 1px solid var(--surface1);
   --library-help-modal-border-radius: 14px;
+  --library-help-modal-max-height: 70vh;
   --library-help-modal-width: min(520px, 90vw);
   --library-help-row-gap: 16px;
   --library-help-row-grid-template-columns: 120px minmax(0, 1fr);
+  --library-help-tab-padding: 8px 0;
+  --library-help-tabs-gap: 16px;
+  --library-help-tabs-padding: 0 24px;
   --library-html-body-line-height: 1.5;
   --library-keyframes-appmenuitemin-from-transform: translateY(-6px);
   --library-keyframes-modal-in-from-transform: scale(0.95) translateY(8px);

@@ -1027,6 +1027,21 @@
           return;
         var link = event.target.closest("a[href]");
         if (!link) return;
+        try {
+          var linkURL = new URL(link.href, doc.URL);
+          var docURL = new URL(doc.URL);
+          var fragment = fragmentFromURL(linkURL.href);
+          if (
+            fragment &&
+            linkURL.origin === docURL.origin &&
+            linkURL.pathname === docURL.pathname &&
+            linkURL.search === docURL.search
+          ) {
+            event.preventDefault();
+            showChapter(currentIndex, fragment, true);
+            return;
+          }
+        } catch (err) {}
         var target = chapterRequest(link.href);
         if (!target || !chapterMeta[target.index]) return;
         event.preventDefault();

@@ -14,6 +14,10 @@ export function ListFonts() {
   return window['go']['main']['App']['ListFonts']();
 }
 
+export function OpenInReaderMode() {
+  return window['go']['main']['App']['OpenInReaderMode']();
+}
+
 export function PickAndScan() {
   return window['go']['main']['App']['PickAndScan']();
 }
@@ -28,4 +32,8 @@ export function SaveConfig(arg1) {
 
 export function ServeHTTP(arg1, arg2) {
   return window['go']['main']['App']['ServeHTTP'](arg1, arg2);
+}
+
+export function TakePendingReaderURL() {
+  return window['go']['main']['App']['TakePendingReaderURL']();
 }

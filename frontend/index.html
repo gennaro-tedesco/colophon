@@ -34,6 +34,17 @@
       </svg>
     </button>
     <div id="app-menu-panel">
+      <div class="app-menu-row">
+        <button
+          type="button"
+          id="app-open-reader-row"
+          class="app-dir-btn"
+          data-i18n="menu.openReaderMode"
+        >
+          Open in Reader Mode
+        </button>
+      </div>
+      <div class="app-menu-sep"></div>
       <div class="app-menu-submenu-wrap">
         <div class="app-menu-row">
           <span class="app-menu-label" data-i18n="menu.library">Library</span>
@@ -392,7 +403,55 @@
           <span id="help-title" data-i18n="help.title">Keyboard Shortcuts</span>
           <button id="help-close" type="button" title="Close">✕</button>
         </div>
+        <div id="help-tabs" role="tablist">
+          <button
+            type="button"
+            id="help-tab-library"
+            class="help-tab is-active"
+            role="tab"
+            aria-selected="true"
+            data-i18n="help.libraryTab"
+          >
+            Library
+          </button>
+          <button
+            type="button"
+            id="help-tab-reader"
+            class="help-tab"
+            role="tab"
+            aria-selected="false"
+            data-i18n="help.readerTab"
+          >
+            Reader
+          </button>
+        </div>
         <div id="help-body">
+          <div class="help-row">
+            <span class="help-keys">ctrl + ,</span
+            ><span class="help-desc" data-i18n="help.openPreferences"
+              >Open preferences</span
+            >
+          </div>
+          <div class="help-row">
+            <span class="help-keys">ctrl +/-</span
+            ><span class="help-desc" data-i18n="help.uiFontSize"
+              >UI font size</span
+            >
+          </div>
+          <div class="help-row">
+            <span class="help-keys">Tab</span
+            ><span class="help-desc" data-i18n="help.toggleSidebar"
+              >Toggle sidebar</span
+            >
+          </div>
+          <div class="help-row">
+            <span class="help-keys">Esc</span
+            ><span class="help-desc" data-i18n="help.closeDialog"
+              >Close dialogs</span
+            >
+          </div>
+        </div>
+        <div id="help-reader-body" class="hidden">
           <div class="help-row">
             <span class="help-keys">↓ / j</span
             ><span class="help-desc" data-i18n="help.scrollDown"
@@ -446,9 +505,21 @@
             >
           </div>
           <div class="help-row">
-            <span class="help-keys">^F</span
+            <span class="help-keys">ctrl + F</span
             ><span class="help-desc" data-i18n="help.openSearch"
               >Open chapter search</span
+            >
+          </div>
+          <div class="help-row">
+            <span class="help-keys">ctrl +/-</span
+            ><span class="help-desc" data-i18n="help.readerFontSize"
+              >Reader font size</span
+            >
+          </div>
+          <div class="help-row">
+            <span class="help-keys">z</span
+            ><span class="help-desc" data-i18n="help.zenMode"
+              >Toggle zen mode</span
             >
           </div>
         </div>

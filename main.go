@@ -6,12 +6,14 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 
 	"github.com/wailsapp/wails/v2"
 	"github.com/wailsapp/wails/v2/pkg/menu"
 	"github.com/wailsapp/wails/v2/pkg/menu/keys"
 	"github.com/wailsapp/wails/v2/pkg/options"
 	"github.com/wailsapp/wails/v2/pkg/options/assetserver"
+	"github.com/wailsapp/wails/v2/pkg/options/mac"
 	"github.com/wailsapp/wails/v2/pkg/runtime"
 )
 
@@ -22,15 +24,23 @@ var version = "dev"
 
 func main() {
 	var root string
+	var initialReaderPath string
 	if len(os.Args) >= 2 {
 		abs, err := filepath.Abs(os.Args[1])
 		if err != nil {
 			log.Fatalf("invalid path: %v", err)
 		}
-		root = abs
+		if strings.EqualFold(filepath.Ext(abs), ".epub") {
+			initialReaderPath = abs
+		} else {
+			root = abs
+		}
 	}
 
 	app := NewApp(root)
+	if initialReaderPath != "" {
+		app.queueReaderPath(initialReaderPath)
+	}
 
 	frontendAssets, err := fs.Sub(assets, "frontend")
 	if err != nil {
@@ -44,15 +54,20 @@ func main() {
 	})
 
 	if err := wails.Run(&options.App{
-		Title:  applicationTitle,
-		Width:  initialWindowWidth,
-		Height: initialWindowHeight,
-		Menu:   appMenu,
+		Title:       applicationTitle,
+		Width:       initialWindowWidth,
+		Height:      initialWindowHeight,
+		Menu:        appMenu,
+		StartHidden: true,
 		AssetServer: &assetserver.Options{
 			Assets:  frontendAssets,
 			Handler: app,
 		},
-		OnStartup: app.startup,
+		OnStartup:  app.startup,
+		OnDomReady: app.domReady,
+		Mac: &mac.Options{
+			OnFileOpen: app.queueReaderPath,
+		},
 		Bind: []interface{}{
 			app,
 		},

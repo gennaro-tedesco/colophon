@@ -10,6 +10,8 @@ export function GetLibrary():Promise<model.Library>;
 
 export function ListFonts():Promise<Array<string>>;
 
+export function OpenInReaderMode():Promise<void>;
+
 export function PickAndScan():Promise<model.Library>;
 
 export function Rescan():Promise<void>;
@@ -17,3 +19,5 @@ export function Rescan():Promise<void>;
 export function SaveConfig(arg1:main.Config):Promise<void>;
 
 export function ServeHTTP(arg1:http.ResponseWriter,arg2:http.Request):Promise<void>;
+
+export function TakePendingReaderURL():Promise<string>;
