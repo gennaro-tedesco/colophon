@@ -475,7 +475,12 @@
   const prefsFontSizeVal = document.getElementById("prefs-font-size-val");
   const prefsSave = document.getElementById("prefs-save");
   const helpBackdrop = document.getElementById("help-backdrop");
+  const helpModal = document.getElementById("help-modal");
   const helpClose = document.getElementById("help-close");
+  const helpBody = document.getElementById("help-body");
+  const helpReaderBody = document.getElementById("help-reader-body");
+  const helpTabLibrary = document.getElementById("help-tab-library");
+  const helpTabReader = document.getElementById("help-tab-reader");
   const appVersionValue = document.getElementById("app-version-value");
   const appHelpRow = document.getElementById("app-help-row");
   const appOpenReaderRow = document.getElementById("app-open-reader-row");
@@ -541,6 +546,16 @@
   helpBackdrop.addEventListener("click", (e) => {
     if (e.target === helpBackdrop) helpBackdrop.classList.add("hidden");
   });
+  function setHelpTab(tab) {
+    helpTabLibrary.classList.toggle("is-active", tab === "library");
+    helpTabReader.classList.toggle("is-active", tab === "reader");
+    helpTabLibrary.setAttribute("aria-selected", String(tab === "library"));
+    helpTabReader.setAttribute("aria-selected", String(tab === "reader"));
+    helpBody.classList.toggle("hidden", tab !== "library");
+    helpReaderBody.classList.toggle("hidden", tab !== "reader");
+  }
+  helpTabLibrary.addEventListener("click", () => setHelpTab("library"));
+  helpTabReader.addEventListener("click", () => setHelpTab("reader"));
   prefsFontSize.addEventListener("input", () => {
     prefsFontSizeVal.textContent = prefsFontSize.value + "px";
   });
@@ -927,7 +942,10 @@
   });
 
   appHelpRow.addEventListener("click", function () {
+    setHelpTab("library");
     helpBackdrop.classList.remove("hidden");
+    helpModal.style.height = "";
+    helpModal.style.height = Math.round(helpModal.offsetHeight * 1.5) + "px";
     appMenuToggle.classList.remove("open");
     appMenuPanel.classList.remove("open");
   });
