@@ -88,7 +88,6 @@
     var chapterCount = Number(body.dataset.readerChapterCount || "0");
     var currentIndex = Number(body.dataset.readerCurrentIndex || "0");
     var encodedPath = body.dataset.readerEncodedPath || "";
-    var standaloneReader = encodedPath.indexOf("__standalone__/") === 0;
     var readerTheme = body.dataset.readerTheme || Settings.defaultTheme;
     if (readerTheme)
       document.documentElement.setAttribute("data-theme", readerTheme);
@@ -980,16 +979,14 @@
       }
       updateChapterLinks(index);
       markActiveTOC(index, currentFragment);
-      if (!standaloneReader) {
-        localStorage.setItem(
-          Settings.lastReadKey,
-          JSON.stringify({
-            path: encodedPath,
-            chapter: index,
-            title: readerTitle,
-          }),
-        );
-      }
+      localStorage.setItem(
+        Settings.lastReadKey,
+        JSON.stringify({
+          path: encodedPath,
+          chapter: index,
+          title: readerTitle,
+        }),
+      );
       if (push) {
         history.pushState(
           { chapter: index, frag: fragment || "" },
@@ -1030,6 +1027,21 @@
           return;
         var link = event.target.closest("a[href]");
         if (!link) return;
+        try {
+          var linkURL = new URL(link.href, doc.URL);
+          var docURL = new URL(doc.URL);
+          var fragment = fragmentFromURL(linkURL.href);
+          if (
+            fragment &&
+            linkURL.origin === docURL.origin &&
+            linkURL.pathname === docURL.pathname &&
+            linkURL.search === docURL.search
+          ) {
+            event.preventDefault();
+            showChapter(currentIndex, fragment, true);
+            return;
+          }
+        } catch (err) {}
         var target = chapterRequest(link.href);
         if (!target || !chapterMeta[target.index]) return;
         event.preventDefault();
@@ -2237,16 +2249,14 @@
           });
       });
 
-    if (!standaloneReader) {
-      localStorage.setItem(
-        Settings.lastReadKey,
-        JSON.stringify({
-          path: encodedPath,
-          chapter: currentIndex,
-          title: readerTitle,
-        }),
-      );
-    }
+    localStorage.setItem(
+      Settings.lastReadKey,
+      JSON.stringify({
+        path: encodedPath,
+        chapter: currentIndex,
+        title: readerTitle,
+      }),
+    );
     window.openPreferences = function () {
       window.location.href = "/?openPrefs=1";
     };

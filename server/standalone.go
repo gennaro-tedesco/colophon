@@ -6,8 +6,6 @@ import (
 	"archive/zip"
 	"container/list"
 	"context"
-	"crypto/rand"
-	"encoding/hex"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,11 +21,10 @@ import (
 const standalonePathPrefix = "__standalone__/"
 
 type StandaloneHandler struct {
-	handler     *Handler
-	epubPath    string
-	epubRel     string
-	encodedPath string
-	title       string
+	handler  *Handler
+	epubPath string
+	epubRel  string
+	title    string
 }
 
 func NewStandaloneHandler(epubPath string, fonts []string, theme string) (*StandaloneHandler, string, error) {
@@ -47,16 +44,11 @@ func NewStandaloneHandler(epubPath string, fonts []string, theme string) (*Stand
 		return nil, "", fmt.Errorf("not an EPUB file: %s", epubPath)
 	}
 
-	identifier := make([]byte, 16)
-	if _, err := rand.Read(identifier); err != nil {
-		return nil, "", err
-	}
-	epubRel := standalonePathPrefix + hex.EncodeToString(identifier) + ".epub"
+	epubRel := standalonePathPrefix + strings.TrimPrefix(filepath.ToSlash(info), "/")
 	standalone := &StandaloneHandler{
-		epubPath:    info,
-		epubRel:     epubRel,
-		encodedPath: encodeURLPath(epubRel),
-		title:       strings.TrimSuffix(filepath.Base(info), filepath.Ext(info)),
+		epubPath: info,
+		epubRel:  epubRel,
+		title:    strings.TrimSuffix(filepath.Base(info), filepath.Ext(info)),
 	}
 	standalone.handler = standalone.newHandler(fonts, theme)
 	return standalone, readerShellURL(epubRel, 0, ""), nil
@@ -75,9 +67,35 @@ func (h *StandaloneHandler) Handles(requestPath string) bool {
 	case contract.Routes["fonts"], contract.Routes["readerCSS"], contract.Routes["readerJS"]:
 		return true
 	}
-	return standaloneRouteMatches(requestPath, contract.Routes["read"]+h.encodedPath) ||
-		standaloneRouteMatches(requestPath, contract.Routes["search"]+h.encodedPath) ||
-		standaloneRouteMatches(requestPath, contract.Routes["cover"]+h.encodedPath)
+	return standaloneRouteMatches(requestPath, contract.Routes["read"]+h.epubRel) ||
+		standaloneRouteMatches(requestPath, contract.Routes["search"]+h.epubRel) ||
+		standaloneRouteMatches(requestPath, contract.Routes["cover"]+h.epubRel)
+}
+
+func StandaloneEPUBPath(requestPath string) (string, bool) {
+	var epubRel string
+	switch {
+	case strings.HasPrefix(requestPath, contract.Routes["read"]):
+		var ok bool
+		epubRel, _, _, ok = parseReadRequestPath(requestPath)
+		if !ok {
+			return "", false
+		}
+	case strings.HasPrefix(requestPath, contract.Routes["search"]):
+		epubRel = strings.TrimPrefix(requestPath, contract.Routes["search"])
+	case strings.HasPrefix(requestPath, contract.Routes["cover"]):
+		epubRel = strings.TrimPrefix(requestPath, contract.Routes["cover"])
+	default:
+		return "", false
+	}
+	if !strings.HasPrefix(epubRel, standalonePathPrefix) {
+		return "", false
+	}
+	filePath := strings.TrimPrefix(epubRel, standalonePathPrefix)
+	if filePath == "" {
+		return "", false
+	}
+	return filepath.Clean(string(filepath.Separator) + filepath.FromSlash(filePath)), true
 }
 
 func standaloneRouteMatches(requestPath, bookPath string) bool {

@@ -467,7 +467,24 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	a.mu.RLock()
 	h := a.handler
 	standaloneHandler := a.standaloneHandler
+	fonts := a.fonts
+	theme := a.cfg.Theme
 	a.mu.RUnlock()
+	if epubPath, ok := server.StandaloneEPUBPath(r.URL.Path); ok {
+		if standaloneHandler == nil || !standaloneHandler.Handles(r.URL.Path) {
+			var err error
+			standaloneHandler, _, err = server.NewStandaloneHandler(epubPath, fonts, theme)
+			if err != nil {
+				http.NotFound(w, r)
+				return
+			}
+			a.mu.Lock()
+			a.standaloneHandler = standaloneHandler
+			a.mu.Unlock()
+		}
+		standaloneHandler.ServeHTTP(w, r)
+		return
+	}
 	if standaloneHandler != nil && standaloneHandler.Handles(r.URL.Path) {
 		standaloneHandler.ServeHTTP(w, r)
 		return
