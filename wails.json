@@ -7,5 +7,16 @@
   "frontend:build": "",
   "author": {
     "name": "gennarotedesco"
+  },
+  "info": {
+    "fileAssociations": [
+      {
+        "ext": "epub",
+        "name": "EPUB Book",
+        "description": "EPUB ebook",
+        "iconName": "appicon",
+        "role": "Viewer"
+      }
+    ]
   }
 }

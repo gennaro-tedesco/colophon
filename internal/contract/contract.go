@@ -43,8 +43,9 @@ var Routes = map[string]string{
 }
 
 var Events = map[string]string{
-	"bookAdded": "book:add",
-	"scanDone":  "scan:done",
+	"bookAdded":  "book:add",
+	"readerOpen": "reader:open",
+	"scanDone":   "scan:done",
 }
 
 var Themes = []Theme{

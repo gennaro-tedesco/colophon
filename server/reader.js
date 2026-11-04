@@ -88,6 +88,7 @@
     var chapterCount = Number(body.dataset.readerChapterCount || "0");
     var currentIndex = Number(body.dataset.readerCurrentIndex || "0");
     var encodedPath = body.dataset.readerEncodedPath || "";
+    var standaloneReader = encodedPath.indexOf("__standalone__/") === 0;
     var readerTheme = body.dataset.readerTheme || Settings.defaultTheme;
     if (readerTheme)
       document.documentElement.setAttribute("data-theme", readerTheme);
@@ -979,14 +980,16 @@
       }
       updateChapterLinks(index);
       markActiveTOC(index, currentFragment);
-      localStorage.setItem(
-        Settings.lastReadKey,
-        JSON.stringify({
-          path: encodedPath,
-          chapter: index,
-          title: readerTitle,
-        }),
-      );
+      if (!standaloneReader) {
+        localStorage.setItem(
+          Settings.lastReadKey,
+          JSON.stringify({
+            path: encodedPath,
+            chapter: index,
+            title: readerTitle,
+          }),
+        );
+      }
       if (push) {
         history.pushState(
           { chapter: index, frag: fragment || "" },
@@ -2234,14 +2237,16 @@
           });
       });
 
-    localStorage.setItem(
-      Settings.lastReadKey,
-      JSON.stringify({
-        path: encodedPath,
-        chapter: currentIndex,
-        title: readerTitle,
-      }),
-    );
+    if (!standaloneReader) {
+      localStorage.setItem(
+        Settings.lastReadKey,
+        JSON.stringify({
+          path: encodedPath,
+          chapter: currentIndex,
+          title: readerTitle,
+        }),
+      );
+    }
     window.openPreferences = function () {
       window.location.href = "/?openPrefs=1";
     };

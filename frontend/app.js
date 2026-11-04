@@ -429,6 +429,14 @@
       endScanUI();
       applyLibraryData(lib && lib.books ? lib.books : []);
     });
+
+    window.runtime.EventsOn(Settings.events.readerOpen, function (readerURL) {
+      openReaderURL(readerURL);
+    });
+
+    window.go.main.App.TakePendingReaderURL().then(function (readerURL) {
+      if (readerURL) openReaderURL(readerURL);
+    });
   }
 
   function localizeDOM() {
@@ -470,6 +478,7 @@
   const helpClose = document.getElementById("help-close");
   const appVersionValue = document.getElementById("app-version-value");
   const appHelpRow = document.getElementById("app-help-row");
+  const appOpenReaderRow = document.getElementById("app-open-reader-row");
 
   function applyUIConfig(cfg) {
     const root = document.documentElement;
@@ -910,6 +919,12 @@
           endScanUI();
         });
     });
+
+  appOpenReaderRow.addEventListener("click", function () {
+    appMenuToggle.classList.remove("open");
+    appMenuPanel.classList.remove("open");
+    window.go.main.App.OpenInReaderMode();
+  });
 
   appHelpRow.addEventListener("click", function () {
     helpBackdrop.classList.remove("hidden");

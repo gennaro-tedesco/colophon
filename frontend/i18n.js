@@ -3,6 +3,7 @@
     en: {
       translation: {
         menu: {
+          openReaderMode: "Open in Reader Mode",
           library: "Library",
           choose: "Choose",
           refresh: "Refresh",
@@ -97,6 +98,7 @@
     de: {
       translation: {
         menu: {
+          openReaderMode: "Im Lesemodus \u00f6ffnen",
           library: "Bibliothek",
           choose: "W\u00e4hlen",
           refresh: "Aktualisieren",
@@ -191,6 +193,7 @@
     it: {
       translation: {
         menu: {
+          openReaderMode: "Apri in modalit\u00e0 lettura",
           library: "Libreria",
           choose: "Scegli",
           refresh: "Aggiorna",
@@ -285,6 +288,7 @@
     zh: {
       translation: {
         menu: {
+          openReaderMode: "\u5728\u9605\u8bfb\u6a21\u5f0f\u4e2d\u6253\u5f00",
           library: "\u4e66\u5e93",
           choose: "\u9009\u62e9",
           refresh: "\u5237\u65b0",

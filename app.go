@@ -51,14 +51,18 @@ import (
 )
 
 type App struct {
-	ctx     context.Context
-	mu      sync.RWMutex
-	scanMu  sync.Mutex
-	root    string
-	lib     model.Library
-	handler *server.Handler
-	cfg     Config
-	fonts   []string
+	ctx               context.Context
+	mu                sync.RWMutex
+	scanMu            sync.Mutex
+	root              string
+	lib               model.Library
+	handler           *server.Handler
+	standaloneHandler *server.StandaloneHandler
+	cfg               Config
+	fonts             []string
+	pendingReaderPath string
+	pendingReaderURL  string
+	readerEventsReady bool
 }
 
 func NewApp(root string) *App {
@@ -66,8 +70,8 @@ func NewApp(root string) *App {
 }
 
 func (a *App) startup(ctx context.Context) {
-	a.ctx = ctx
 	a.mu.Lock()
+	a.ctx = ctx
 	a.cfg = loadConfig()
 	a.cfg.Version = version
 	a.fonts = listSystemFonts()
@@ -75,11 +79,18 @@ func (a *App) startup(ctx context.Context) {
 		a.root = a.cfg.LibraryDir
 	}
 	root := a.root
+	pendingReaderPath := a.pendingReaderPath
+	a.pendingReaderPath = ""
 	a.mu.Unlock()
 	if root != "" {
 		go a.streamScan(root)
 	} else {
 		runtime.EventsEmit(a.ctx, contract.Events["scanDone"], model.Library{Books: []model.Book{}})
+	}
+	if pendingReaderPath != "" {
+		if err := a.openReaderPath(pendingReaderPath); err != nil {
+			log.Printf("could not open EPUB in reader mode: %v", err)
+		}
 	}
 }
 
@@ -267,6 +278,9 @@ func (a *App) SaveConfig(cfg Config) error {
 	} else if a.handler != nil {
 		a.handler.SetTheme(cfg.Theme)
 	}
+	if a.standaloneHandler != nil {
+		a.standaloneHandler.SetTheme(cfg.Theme)
+	}
 	a.mu.Unlock()
 	return nil
 }
@@ -323,6 +337,72 @@ func (a *App) ListFonts() []string {
 	return a.getFonts()
 }
 
+func (a *App) OpenInReaderMode() error {
+	filePath, err := runtime.OpenFileDialog(a.ctx, runtime.OpenDialogOptions{
+		Title: "Open in Reader Mode",
+		Filters: []runtime.FileFilter{
+			{DisplayName: "EPUB Books (*.epub)", Pattern: "*.epub"},
+		},
+		ResolvesAliases: true,
+	})
+	if err != nil || filePath == "" {
+		return err
+	}
+	return a.openReaderPath(filePath)
+}
+
+func (a *App) TakePendingReaderURL() string {
+	a.mu.Lock()
+	defer a.mu.Unlock()
+	a.readerEventsReady = true
+	readerURL := a.pendingReaderURL
+	a.pendingReaderURL = ""
+	return readerURL
+}
+
+func (a *App) queueReaderPath(filePath string) {
+	a.mu.Lock()
+	if a.ctx == nil {
+		a.pendingReaderPath = filePath
+		a.mu.Unlock()
+		return
+	}
+	a.mu.Unlock()
+	if err := a.openReaderPath(filePath); err != nil {
+		log.Printf("could not open EPUB in reader mode: %v", err)
+	}
+}
+
+func (a *App) openReaderPath(filePath string) error {
+	a.mu.RLock()
+	ctx := a.ctx
+	fonts := a.fonts
+	theme := a.cfg.Theme
+	a.mu.RUnlock()
+	if ctx == nil {
+		a.mu.Lock()
+		a.pendingReaderPath = filePath
+		a.mu.Unlock()
+		return nil
+	}
+
+	handler, readerURL, err := server.NewStandaloneHandler(filePath, fonts, theme)
+	if err != nil {
+		return err
+	}
+	a.mu.Lock()
+	a.standaloneHandler = handler
+	readerEventsReady := a.readerEventsReady
+	if !readerEventsReady {
+		a.pendingReaderURL = readerURL
+	}
+	a.mu.Unlock()
+	if readerEventsReady {
+		runtime.EventsEmit(ctx, contract.Events["readerOpen"], readerURL)
+	}
+	return nil
+}
+
 func listSystemFonts() []string {
 	var n C.int
 	items := C.fontFamilyList(&n)
@@ -375,7 +455,12 @@ func (a *App) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	a.mu.RLock()
 	h := a.handler
+	standaloneHandler := a.standaloneHandler
 	a.mu.RUnlock()
+	if standaloneHandler != nil && standaloneHandler.Handles(r.URL.Path) {
+		standaloneHandler.ServeHTTP(w, r)
+		return
+	}
 	if h == nil {
 		http.Error(w, "no library loaded", http.StatusServiceUnavailable)
 		return
