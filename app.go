@@ -62,6 +62,7 @@ type App struct {
 	fonts             []string
 	pendingReaderPath string
 	pendingReaderURL  string
+	frontendReady     bool
 	readerEventsReady bool
 }
 
@@ -79,14 +80,22 @@ func (a *App) startup(ctx context.Context) {
 		a.root = a.cfg.LibraryDir
 	}
 	root := a.root
-	pendingReaderPath := a.pendingReaderPath
-	a.pendingReaderPath = ""
 	a.mu.Unlock()
 	if root != "" {
 		go a.streamScan(root)
 	} else {
 		runtime.EventsEmit(a.ctx, contract.Events["scanDone"], model.Library{Books: []model.Book{}})
 	}
+}
+
+func (a *App) domReady(_ context.Context) {
+	a.mu.Lock()
+	a.frontendReady = true
+	ctx := a.ctx
+	pendingReaderPath := a.pendingReaderPath
+	a.pendingReaderPath = ""
+	a.mu.Unlock()
+	runtime.WindowShow(ctx)
 	if pendingReaderPath != "" {
 		if err := a.openReaderPath(pendingReaderPath); err != nil {
 			log.Printf("could not open EPUB in reader mode: %v", err)
@@ -362,12 +371,14 @@ func (a *App) TakePendingReaderURL() string {
 
 func (a *App) queueReaderPath(filePath string) {
 	a.mu.Lock()
-	if a.ctx == nil {
+	if a.ctx == nil || !a.frontendReady {
 		a.pendingReaderPath = filePath
 		a.mu.Unlock()
 		return
 	}
+	ctx := a.ctx
 	a.mu.Unlock()
+	runtime.WindowShow(ctx)
 	if err := a.openReaderPath(filePath); err != nil {
 		log.Printf("could not open EPUB in reader mode: %v", err)
 	}

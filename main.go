@@ -54,15 +54,17 @@ func main() {
 	})
 
 	if err := wails.Run(&options.App{
-		Title:  applicationTitle,
-		Width:  initialWindowWidth,
-		Height: initialWindowHeight,
-		Menu:   appMenu,
+		Title:       applicationTitle,
+		Width:       initialWindowWidth,
+		Height:      initialWindowHeight,
+		Menu:        appMenu,
+		StartHidden: true,
 		AssetServer: &assetserver.Options{
 			Assets:  frontendAssets,
 			Handler: app,
 		},
-		OnStartup: app.startup,
+		OnStartup:  app.startup,
+		OnDomReady: app.domReady,
 		Mac: &mac.Options{
 			OnFileOpen: app.queueReaderPath,
 		},
