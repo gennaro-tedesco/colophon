@@ -426,10 +426,6 @@ body.sidebar-collapsed #sidebar {
     box-shadow var(--motion-color);
 }
 
-#search-scope-wrap.open {
-  border-color: var(--blue);
-}
-
 #search-scope-menu {
   left: 0;
   right: 0;
@@ -1605,7 +1601,7 @@ input[type="range"].prefs-input {
 }
 
 .app-font-family-choice:hover {
-  background: var(--mix-teal-14-base);
+  background: var(--mix-teal-28-t);
 }
 
 .app-font-family-choice.is-active {
