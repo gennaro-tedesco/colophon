@@ -38,6 +38,7 @@
   const drilldownClose = document.getElementById("drilldown-close");
   const readerOverlay = document.getElementById("reader-overlay");
   const readerOverlayFrame = document.getElementById("reader-overlay-frame");
+  const statsBtnLibraryIcon = Icons.library;
   const statsBtnStatsIcon = Icons.stats;
 
   function groupLabel(key) {
@@ -1050,7 +1051,11 @@
   });
 
   statsBtn.addEventListener("click", function () {
-    setView("stats");
+    if (currentView === "stats") {
+      setView("library");
+    } else {
+      setView("stats");
+    }
   });
   updateViewButtons();
   drilldownClose.addEventListener("click", closeDrilldownModal);
@@ -1169,10 +1174,20 @@
 
   function updateViewButtons() {
     syncAppTabs();
-    statsBtn.classList.toggle("current", currentView === "stats");
-    statsBtn.dataset.tooltip = "stats";
-    statsBtn.setAttribute("aria-label", t("tooltip.stats"));
-    statsBtn.innerHTML = statsBtnStatsIcon;
+    const statsView = currentView === "stats";
+    statsBtn.classList.toggle("current", false);
+    statsBtn.dataset.tooltip = statsView ? "library" : "stats";
+    statsBtn.setAttribute(
+      "data-i18n",
+      statsView
+        ? "[data-tooltip]tooltip.library"
+        : "[data-tooltip]tooltip.stats",
+    );
+    statsBtn.setAttribute(
+      "aria-label",
+      t(statsView ? "tooltip.library" : "tooltip.stats"),
+    );
+    statsBtn.innerHTML = statsView ? statsBtnLibraryIcon : statsBtnStatsIcon;
   }
 
   function closeDrilldownModal() {
