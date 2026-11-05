@@ -58,10 +58,6 @@
   outline: none;
 }
 
-.app-tab.is-active {
-  color: var(--blue);
-}
-
 #app-tabs-contour {
   position: absolute;
   top: 0;
@@ -89,14 +85,22 @@
   display: block;
   left: 0;
   width: calc(50% - 159px);
-  background: linear-gradient(to right, var(--mantle), var(--base));
+  background: linear-gradient(
+    to right,
+    var(--mantle) var(--sidebar-w),
+    var(--base)
+  );
 }
 
 #app-tab-reader.is-active ~ .app-tabs-fade-right {
   display: block;
   right: 0;
   width: calc(50% - 159px);
-  background: linear-gradient(to left, var(--mantle), var(--base));
+  background: linear-gradient(
+    to left,
+    var(--mantle) var(--sidebar-w),
+    var(--base)
+  );
 }
 
 #app-tab-reader.is-active ~ #app-tabs-contour .app-tabs-contour-library,
@@ -109,6 +113,7 @@
 
 .app-tab:disabled {
   color: var(--overlay0);
+  opacity: 0.4;
   cursor: default;
 }
 
