@@ -11,7 +11,7 @@
 :root {
   --sidebar-w: var(--sidebar-width-default);
   --menu-overlap: 8px;
-  --app-tabs-height: 52px;
+  --app-tabs-height: 46px;
 }
 
 #app-tabs {
@@ -765,6 +765,14 @@ body.sidebar-collapsed #sidebar {
 
 #reader-overlay.visible {
   visibility: visible;
+}
+
+body.reader-zen #app-tabs {
+  display: none;
+}
+
+body.reader-zen #reader-overlay {
+  inset: 0;
 }
 
 #reader-overlay-frame {

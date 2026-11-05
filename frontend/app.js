@@ -1204,11 +1204,22 @@
     return (path || "").split("/").map(encodeURIComponent).join("/");
   }
 
+  function resetReaderZen() {
+    document.body.classList.remove("reader-zen");
+    const doc = readerOverlayFrame.contentDocument;
+    if (doc && doc.body) doc.body.classList.remove("reader-zen");
+  }
+
+  window.setReaderZen = function (active) {
+    document.body.classList.toggle("reader-zen", active);
+  };
+
   function openReaderURL(url) {
     if (!readerOverlay || !readerOverlayFrame) {
       window.location.href = url;
       return;
     }
+    resetReaderZen();
     readerTabEnabled = true;
     var targetURL = new URL(url, window.location.href).href;
     if (readerOverlayFrame.contentWindow.location.href === targetURL) {
@@ -1240,6 +1251,7 @@
 
   window.closeReader = function () {
     readerOverlay.classList.remove("visible");
+    resetReaderZen();
     syncAppTabs();
     window.focus();
   };

@@ -1072,6 +1072,12 @@
 
     function toggleZenMode() {
       body.classList.toggle("reader-zen");
+      if (
+        window.parent !== window &&
+        typeof window.parent.setReaderZen === "function"
+      ) {
+        window.parent.setReaderZen(body.classList.contains("reader-zen"));
+      }
     }
 
     function adjustReaderFontSize(direction) {
