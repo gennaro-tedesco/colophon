@@ -27,7 +27,8 @@
   const activeFiltersEl = document.getElementById("active-filters");
   const count = document.getElementById("count");
   const scanStatus = document.getElementById("scan-status");
-  const libraryBtn = document.getElementById("library-btn");
+  const appTabLibrary = document.getElementById("app-tab-library");
+  const appTabReader = document.getElementById("app-tab-reader");
   const statsBtn = document.getElementById("stats-btn");
   const sidebarResizer = document.getElementById("sidebar-resizer");
   const sidebarToggle = document.getElementById("sidebar-toggle");
@@ -35,7 +36,6 @@
   const drilldownTitle = document.getElementById("drilldown-title");
   const drilldownBody = document.getElementById("drilldown-body");
   const drilldownClose = document.getElementById("drilldown-close");
-  const continueReading = document.getElementById("continue-reading");
   const readerOverlay = document.getElementById("reader-overlay");
   const readerOverlayFrame = document.getElementById("reader-overlay-frame");
   const statsBtnStatsIcon = Icons.stats;
@@ -995,17 +995,23 @@
     }
   }
 
-  function syncContinueReading() {
-    var data = getLastRead();
-    continueReading.disabled = !(data && data.path);
-    continueReading.title =
-      data && data.path
-        ? t("books.continueReading", { title: data.title || "" })
-        : "";
+  let readerTabEnabled = false;
+
+  function syncAppTabs() {
+    const readerOpen = readerOverlay.classList.contains("visible");
+    appTabReader.disabled = !readerTabEnabled;
+    appTabLibrary.classList.toggle("is-active", !readerOpen);
+    appTabReader.classList.toggle("is-active", readerOpen);
   }
 
-  syncContinueReading();
-  continueReading.addEventListener("click", function () {
+  syncAppTabs();
+  appTabLibrary.addEventListener("click", function () {
+    if (readerOverlay.classList.contains("visible")) window.closeReader();
+    if (currentView !== "library") setView("library");
+    clearFilters();
+  });
+  appTabReader.addEventListener("click", function () {
+    if (!readerTabEnabled) return;
     var data = getLastRead();
     if (!data || !data.path) return;
     openReaderURL(
@@ -1043,11 +1049,6 @@
     renderFiltered();
   });
 
-  libraryBtn.addEventListener("click", function () {
-    if (libraryBtn.classList.contains("current")) return;
-    if (currentView !== "library") setView("library");
-    clearFilters();
-  });
   statsBtn.addEventListener("click", function () {
     setView("stats");
   });
@@ -1167,11 +1168,7 @@
   }
 
   function updateViewButtons() {
-    const cleanLibrary =
-      currentView === "library" &&
-      !hasActiveFilters() &&
-      search.value.trim() === "";
-    libraryBtn.classList.toggle("current", cleanLibrary);
+    syncAppTabs();
     statsBtn.classList.toggle("current", currentView === "stats");
     statsBtn.dataset.tooltip = "stats";
     statsBtn.setAttribute("aria-label", t("tooltip.stats"));
@@ -1212,16 +1209,19 @@
       window.location.href = url;
       return;
     }
+    readerTabEnabled = true;
     var targetURL = new URL(url, window.location.href).href;
     if (readerOverlayFrame.contentWindow.location.href === targetURL) {
       readerOverlay.classList.add("visible");
       readerOverlayFrame.contentWindow.focus();
+      syncAppTabs();
       return;
     }
     readerOverlayLoading = true;
     readerOverlay.classList.add("loading");
     readerOverlay.classList.add("visible");
     readerOverlayFrame.src = url;
+    syncAppTabs();
   }
 
   function openReader(book) {
@@ -1240,7 +1240,7 @@
 
   window.closeReader = function () {
     readerOverlay.classList.remove("visible");
-    syncContinueReading();
+    syncAppTabs();
     window.focus();
   };
 

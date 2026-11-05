@@ -134,7 +134,7 @@
   --library-app-menu-panel-open-nth-child-4-animation-delay: 0.19s;
   --library-app-menu-panel-open-nth-child-5-animation-delay: 0.24s;
   --library-app-menu-panel-padding: 8px 0;
-  --library-app-menu-panel-top: 50px;
+  --library-app-menu-panel-top: calc(var(--app-tabs-height) + 50px);
   --library-app-menu-panel-z-index: 200;
   --library-app-menu-row-border-radius: 4px;
   --library-app-menu-row-gap: 10px;
@@ -148,7 +148,7 @@
   --library-app-menu-toggle-left: 12px;
   --library-app-menu-toggle-svg-height: calc(var(--fs-base) * 2);
   --library-app-menu-toggle-svg-width: calc(var(--fs-base) * 2);
-  --library-app-menu-toggle-top: 12px;
+  --library-app-menu-toggle-top: calc(var(--app-tabs-height) + 12px);
   --library-app-menu-toggle-width: calc(var(--fs-base) * 2);
   --library-app-menu-toggle-z-index: 201;
   --library-app-submenu-backdrop-filter: blur(12px);
@@ -183,7 +183,6 @@
     100% + 10px
   );
   --library-continue-reading-after-library-btn-after-stats-btn-after-view-to-filter-btn-after-z-index: 8;
-  --library-continue-reading-disabled-opacity: 0.35;
   --library-continue-reading-library-btn-stats-btn-border: 1px solid
     var(--surface1);
   --library-continue-reading-library-btn-stats-btn-border-radius: 4px;

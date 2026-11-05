@@ -11,6 +11,105 @@
 :root {
   --sidebar-w: var(--sidebar-width-default);
   --menu-overlap: 8px;
+  --app-tabs-height: 52px;
+}
+
+#app-tabs {
+  position: relative;
+  flex: 0 0 var(--app-tabs-height);
+  display: flex;
+  justify-content: center;
+  align-items: stretch;
+  padding: 0 24px;
+  background: var(--mantle);
+}
+
+#app-body {
+  display: flex;
+  flex: 1;
+  min-height: 0;
+}
+
+.app-tab {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 160px;
+  background: none;
+  border: none;
+  color: var(--subtext0);
+  font-family: var(--font-sans);
+  font-size: var(--fs-base);
+  padding: 0;
+  cursor: pointer;
+  transition:
+    color var(--motion-color),
+    background var(--motion-color);
+}
+
+.app-tab:hover:not(:disabled):not(.is-active) {
+  color: var(--text);
+}
+
+.app-tab:focus,
+.app-tab:focus-visible {
+  outline: none;
+}
+
+.app-tab.is-active {
+  color: var(--blue);
+}
+
+#app-tabs-contour {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 320px;
+  height: var(--app-tabs-height);
+  transform: translateX(-50%);
+  overflow: visible;
+  pointer-events: none;
+}
+
+#app-tabs-contour path {
+  fill: var(--base);
+}
+
+.app-tabs-fade {
+  display: none;
+  position: absolute;
+  top: 0;
+  height: var(--app-tabs-height);
+  pointer-events: none;
+}
+
+#app-tab-library.is-active ~ .app-tabs-fade-left {
+  display: block;
+  left: 0;
+  width: calc(50% - 159px);
+  background: linear-gradient(to right, var(--mantle), var(--base));
+}
+
+#app-tab-reader.is-active ~ .app-tabs-fade-right {
+  display: block;
+  right: 0;
+  width: calc(50% - 159px);
+  background: linear-gradient(to left, var(--mantle), var(--base));
+}
+
+#app-tab-reader.is-active ~ #app-tabs-contour .app-tabs-contour-library,
+#app-tab-library.is-active
+  ~ #app-tab-reader
+  ~ #app-tabs-contour
+  .app-tabs-contour-reader {
+  display: none;
+}
+
+.app-tab:disabled {
+  color: var(--overlay0);
+  cursor: default;
 }
 
 html,
@@ -25,6 +124,7 @@ body {
 
 body {
   display: flex;
+  flex-direction: column;
   overflow: hidden;
 }
 
@@ -652,7 +752,7 @@ body.sidebar-collapsed #sidebar {
 
 #reader-overlay {
   position: fixed;
-  inset: 0;
+  inset: var(--app-tabs-height) 0 0 0;
   z-index: var(--library-reader-overlay-z-index);
   background: var(--base);
   visibility: hidden;
@@ -680,8 +780,6 @@ body.sidebar-collapsed #sidebar {
   display: flex;
 }
 
-#continue-reading,
-#library-btn,
 #stats-btn {
   position: relative;
   background: var(--surface0);
@@ -703,40 +801,22 @@ body.sidebar-collapsed #sidebar {
   margin: 0;
 }
 
-#continue-reading:hover,
-#library-btn:not(.current):hover,
 #stats-btn:not(.current):hover {
   color: var(--mauve);
   border-color: var(--mauve);
   background: var(--mix-mauve-12-surface0);
 }
 
-#continue-reading:disabled {
-  opacity: var(--library-continue-reading-disabled-opacity);
-  cursor: default;
-}
-
-#continue-reading:disabled:hover {
-  color: var(--text);
-  border-color: var(--surface1);
-  background: var(--surface0);
-}
-
-#library-btn.current,
 #stats-btn.current {
   opacity: var(--library-library-btn-current-stats-btn-current-opacity);
   cursor: default;
 }
 
-#continue-reading svg,
-#library-btn svg,
 #stats-btn svg {
   width: var(--fs-md);
   height: var(--fs-md);
 }
 
-#continue-reading::after,
-#library-btn::after,
 #stats-btn::after {
   content: attr(data-tooltip);
   position: absolute;
@@ -760,19 +840,10 @@ body.sidebar-collapsed #sidebar {
   );
 }
 
-#continue-reading:hover::after,
-#continue-reading:focus-visible::after,
-#library-btn:not(.current):hover::after,
-#library-btn:not(.current):focus-visible::after,
 #stats-btn:not(.current):hover::after,
 #stats-btn:not(.current):focus-visible::after {
   opacity: 1;
   animation: tooltip-drop var(--motion-tooltip) ease-out forwards;
-}
-
-#continue-reading:disabled::after {
-  opacity: 0;
-  animation: none;
 }
 
 @keyframes tooltip-drop {

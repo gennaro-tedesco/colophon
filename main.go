@@ -67,6 +67,7 @@ func main() {
 		OnDomReady: app.domReady,
 		Mac: &mac.Options{
 			OnFileOpen: app.queueReaderPath,
+			TitleBar:   mac.TitleBarHidden(),
 		},
 		Bind: []interface{}{
 			app,
