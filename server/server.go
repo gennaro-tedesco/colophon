@@ -51,7 +51,6 @@ type readerShellData struct {
 	Title          string
 	Meta           string
 	CurrentChapter string
-	Progress       string
 	ChapterCount   int
 	Prev           string
 	Next           string
@@ -289,7 +288,6 @@ func serveReaderShell(w http.ResponseWriter, r *http.Request, absEpub, epubRel, 
 		Title:          title,
 		Meta:           meta,
 		CurrentChapter: chapters[chapterIndex].Title,
-		Progress:       strconv.Itoa(chapterIndex+1) + " / " + strconv.Itoa(len(book.Chapters)),
 		ChapterCount:   len(book.Chapters),
 		TOCHTML:        buildTOCHTML(book.TOC, book.Spine, epubRel, book.Spine[chapterIndex], r.URL.Query().Get("frag")),
 		EncodedPath:    encodeURLPath(epubRel),

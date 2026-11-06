@@ -1,8 +1,6 @@
 :root {
   --sidebar-w: var(--sidebar-width-default);
   --reader-shell-fg: var(--text);
-  --reader-progress-book: var(--text);
-  --reader-progress-chapter: var(--subtext0);
   --reader-search-mark: var(--yellow);
   --reader-search-mark-active: var(--mauve);
   --reader-search-mark-text: var(--crust);
@@ -36,6 +34,8 @@ body.reader-zen {
 body.reader-zen .reader-sidebar,
 body.reader-zen .reader-sidebar-resizer,
 body.reader-zen .reader-library-action,
+body.reader-zen .reader-page-tools,
+body.reader-zen .reader-search-tools,
 body.reader-zen .reader-toolbar {
   display: none;
 }
@@ -352,49 +352,6 @@ body.sidebar-collapsed .reader-sidebar {
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
-}
-.reader-progress-badge {
-  flex: 0 0 auto;
-  font-family: var(--font-mono);
-  font-size: var(--fs-sm);
-  color: var(--yellow);
-  white-space: nowrap;
-}
-.reader-progress-stack {
-  margin-top: var(--reader-reader-progress-stack-margin-top);
-  display: grid;
-  gap: var(--reader-reader-progress-stack-gap);
-}
-.reader-progress-row {
-  display: flex;
-  align-items: center;
-  gap: var(--reader-reader-progress-row-gap);
-  width: 100%;
-}
-.reader-progress-icon {
-  flex: 0 0 auto;
-  width: var(--reader-reader-progress-icon-width);
-  height: var(--reader-reader-progress-icon-height);
-  color: var(--reader-progress-book);
-}
-.reader-progress-track {
-  flex: 1 1 auto;
-  height: var(--reader-reader-progress-track-height);
-  border-radius: var(--reader-reader-progress-track-border-radius);
-  background: var(--surface0);
-  overflow: hidden;
-}
-.reader-progress-fill {
-  width: 0%;
-  height: 100%;
-  border-radius: inherit;
-  transition: width var(--motion-fast) ease;
-}
-.reader-progress-fill.chapter {
-  background: var(--reader-progress-chapter);
-}
-.reader-progress-fill.book {
-  background: var(--reader-progress-book);
 }
 .reader-frame-stage {
   position: relative;
