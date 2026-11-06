@@ -42,8 +42,8 @@
   --reader-size-default: 24px;
   --reader-padding-default: 72px;
   --reader-line-height-default: 1.6;
-  --reader-padding-top: 3rem;
-  --reader-padding-bottom: 4rem;
+  --reader-padding-top: 2.4rem;
+  --reader-padding-bottom: 3.4rem;
   --reader-panel-text-margin-block: 16px;
   --reader-tools-margin-block-start: 16px;
   --reader-tools-margin-inline: 18px;
@@ -416,13 +416,6 @@
   --reader-reader-page-tools-left: var(--reader-tools-margin-inline);
   --reader-reader-page-tools-top: var(--reader-tools-margin-block-start);
   --reader-reader-page-tools-z-index: 2;
-  --reader-reader-progress-icon-height: 14px;
-  --reader-reader-progress-icon-width: 14px;
-  --reader-reader-progress-row-gap: 8px;
-  --reader-reader-progress-stack-gap: 5px;
-  --reader-reader-progress-stack-margin-top: 10px;
-  --reader-reader-progress-track-border-radius: 999px;
-  --reader-reader-progress-track-height: 4px;
   --reader-reader-search-backdrop-filter: blur(10px);
   --reader-reader-search-border: 1px solid var(--surface1);
   --reader-reader-search-border-radius: 999px;

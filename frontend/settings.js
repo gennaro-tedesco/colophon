@@ -54,7 +54,6 @@ const Settings = Object.freeze({
   readerFontRange: Object.freeze({ min: 14, max: 48, step: 1 }),
   readerPaddingRange: Object.freeze({ min: 32, max: 160, step: 4 }),
   readerChapterLoadingDelay: 200,
-  readerProgressDelay: 150,
   readerTocHoverDelay: 500,
   readerNavBandMax: 160,
   readerNavBandRatio: 0.3,

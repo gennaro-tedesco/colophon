@@ -106,12 +106,7 @@
     var searchTools = document.getElementById("reader-search-tools");
     var searchToggle = document.getElementById("reader-search-toggle");
     var searchPanel = document.getElementById("reader-search-panel");
-    var chapterProgressFill = document.getElementById(
-      "reader-chapter-progress-fill",
-    );
-    var bookProgressFill = document.getElementById("reader-book-progress-fill");
     var chapterHeading = document.querySelector(".reader-toolbar-chapter");
-    var progressBadge = document.querySelector(".reader-progress-badge");
     var chapterMeta = [];
     var chapterMetaNode = document.getElementById("reader-chapters");
     if (chapterMetaNode) {
@@ -214,7 +209,7 @@
     var frameScrollBound = false;
     var frameWheelBound = false;
     var frameSetupDoc = null;
-    var progressFrame = 0;
+    var scrollFrame = 0;
     var themeFrame = 0;
     var prevIndex = -1;
     var nextIndex = -1;
@@ -224,6 +219,7 @@
     var bufferReady = false;
     var pendingNavigation = null;
     var chapterLoadingTimer = null;
+    var epubPageBreakDocs = new WeakSet();
     var SIDEBAR_WIDTH_KEY = Settings.sidebarWidthKey;
     var SIDEBAR_LAST_KEY = Settings.sidebarLastKey;
     var SIDEBAR_MIN = parseFloat(settingValue("--sidebar-width-min"));
@@ -402,11 +398,6 @@
         scrollFrameToFraction(doc, fraction);
       }
       document.documentElement.style.setProperty("--reader-shell-fg", fg);
-      document.documentElement.style.setProperty("--reader-progress-book", fg);
-      document.documentElement.style.setProperty(
-        "--reader-progress-chapter",
-        fg,
-      );
       bgCurrent.style.backgroundColor = bg;
       fgCurrent.style.backgroundColor = fg;
       lhCurrent.textContent = lh;
@@ -553,6 +544,27 @@
       doc.body.appendChild(spacer);
     }
 
+    function applyEpubPageBreaks(doc) {
+      if (epubPageBreakDocs.has(doc)) return;
+      var win = doc.defaultView;
+      if (!win) return;
+      Array.prototype.forEach.call(
+        doc.body.querySelectorAll("*"),
+        function (element) {
+          var value = win.getComputedStyle(element).pageBreakBefore;
+          if (value !== "always" && value !== "left" && value !== "right")
+            return;
+          element.style.setProperty("break-before", "column", "important");
+          element.style.setProperty(
+            "-webkit-column-break-before",
+            "always",
+            "important",
+          );
+        },
+      );
+      epubPageBreakDocs.add(doc);
+    }
+
     function applyFramePagination(doc) {
       if (!doc || !doc.body) return;
       var win = doc.defaultView;
@@ -592,6 +604,7 @@
         "hidden",
         "important",
       );
+      applyEpubPageBreaks(doc);
       addPaginationSpacer(doc);
       doc.body.scrollTop = 0;
     }
@@ -701,6 +714,7 @@
       var step = paginationMetrics(doc).step;
       if (direction > 0) {
         if (left >= maxLeft - 1) {
+          if (goToAdjacentTOC(1, "start")) return;
           if (nextIndex < 0) return;
           pendingPageTarget = "start";
           goToChapter(nextIndex);
@@ -710,6 +724,7 @@
         return;
       }
       if (left <= 1) {
+        if (goToAdjacentTOC(-1, "end")) return;
         if (prevIndex < 0) return;
         pendingPageTarget = "end";
         goToChapter(prevIndex);
@@ -773,9 +788,12 @@
       chapterLoading.setAttribute("aria-hidden", "true");
     }
 
-    function markActiveTOC(index, fragment) {
-      if (!toc) return;
-      var links = Array.from(toc.querySelectorAll("a[data-toc-chapter]"));
+    function tocNavigationLinks() {
+      if (!toc) return [];
+      return Array.from(toc.querySelectorAll("a[data-toc-chapter]"));
+    }
+
+    function activeTOCInLinks(links, index, fragment) {
       var chapterLinks = links.filter(function (link) {
         return Number(link.dataset.tocChapter) === index;
       });
@@ -791,9 +809,22 @@
             return !link.dataset.tocFragment;
           }) || chapterLinks[0];
       }
+      return active || null;
+    }
+
+    function markActiveTOC(index, fragment) {
+      var links = tocNavigationLinks();
+      var active = activeTOCInLinks(links, index, fragment);
       links.forEach(function (link) {
         link.classList.toggle("active", link === active);
       });
+      if (active && chapterHeading) {
+        var label =
+          !fragment || active.dataset.tocFragment === fragment
+            ? active.querySelector(".group-item-label")
+            : null;
+        if (label) chapterHeading.textContent = label.textContent;
+      }
       var section = active ? active.closest(".group-section") : null;
       while (section) {
         section.classList.add("open");
@@ -801,6 +832,24 @@
           ? section.parentNode.closest(".group-section")
           : null;
       }
+    }
+
+    function adjacentTOCLink(direction) {
+      var links = tocNavigationLinks();
+      var current = activeTOCInLinks(links, currentIndex, currentFragment);
+      if (!current) return null;
+      return links[links.indexOf(current) + direction] || null;
+    }
+
+    function goToAdjacentTOC(direction, pageTarget) {
+      var target = adjacentTOCLink(direction);
+      if (!target) return false;
+      var index = Number(target.dataset.tocChapter);
+      var fragment = target.dataset.tocFragment || "";
+      pendingPageTarget =
+        index !== currentIndex && !fragment ? pageTarget || null : null;
+      showChapter(index, fragment, true);
+      return true;
     }
 
     function fragmentFromURL(href) {
@@ -846,10 +895,18 @@
       var win = doc.defaultView;
       if (!win) return;
       var horizontal = frameIsPaginated(doc);
-      var threshold = horizontal
-        ? Math.max(win.innerWidth * 0.5, 1)
-        : Math.min(win.innerHeight * 0.25, 160);
-      var fragment = "";
+      var threshold = Math.min(win.innerHeight * 0.25, 160);
+      var rightPageStart = 0;
+      if (horizontal) {
+        var bodyStyle = win.getComputedStyle(doc.body);
+        var padLeft = parseFloat(bodyStyle.paddingLeft) || 0;
+        var padRight = parseFloat(bodyStyle.paddingRight) || 0;
+        var metrics = paginationMetrics(doc);
+        rightPageStart = padLeft + metrics.column + metrics.gap;
+        threshold = Math.max(win.innerWidth - padRight - 1, rightPageStart);
+      }
+      var lastLeft = "";
+      var firstRight = "";
       toc.querySelectorAll("a[data-toc-chapter]").forEach(function (link) {
         if (Number(link.dataset.tocChapter) !== currentIndex) return;
         var candidate = link.dataset.tocFragment;
@@ -859,12 +916,19 @@
         if (!target) return;
         var rect = target.getBoundingClientRect();
         var position = horizontal ? rect.left : rect.top;
-        if (position <= threshold) {
-          fragment = candidate;
+        if (!horizontal) {
+          if (position <= threshold) lastLeft = candidate;
+          return;
+        }
+        if (position < rightPageStart) {
+          lastLeft = candidate;
+        } else if (!firstRight && position <= threshold) {
+          firstRight = candidate;
         }
       });
-      currentFragment = fragment;
+      currentFragment = horizontal ? firstRight || lastLeft : lastLeft;
       markActiveTOC(currentIndex, currentFragment);
+      updateChapterLinks(currentIndex);
     }
 
     function updateChapterLinks(index) {
@@ -872,15 +936,37 @@
       if (!meta) return;
       prevIndex = meta.prev;
       nextIndex = meta.next;
+      var links = tocNavigationLinks();
+      var current = activeTOCInLinks(links, index, currentFragment);
+      var position = current ? links.indexOf(current) : -1;
+      var prev = position > 0 ? links[position - 1] : null;
+      var next =
+        position >= 0 && position + 1 < links.length
+          ? links[position + 1]
+          : null;
       if (prevChapter) {
-        prevChapter.href =
-          prevIndex >= 0 ? chapterShellURL(prevIndex, "") : "#";
-        prevChapter.parentNode.hidden = prevIndex < 0;
+        if (prev) {
+          prevChapter.href = chapterShellURL(
+            Number(prev.dataset.tocChapter),
+            prev.dataset.tocFragment || "",
+          );
+        } else {
+          prevChapter.href =
+            prevIndex >= 0 ? chapterShellURL(prevIndex, "") : "#";
+        }
+        prevChapter.parentNode.hidden = !prev && prevIndex < 0;
       }
       if (nextChapter) {
-        nextChapter.href =
-          nextIndex >= 0 ? chapterShellURL(nextIndex, "") : "#";
-        nextChapter.parentNode.hidden = nextIndex < 0;
+        if (next) {
+          nextChapter.href = chapterShellURL(
+            Number(next.dataset.tocChapter),
+            next.dataset.tocFragment || "",
+          );
+        } else {
+          nextChapter.href =
+            nextIndex >= 0 ? chapterShellURL(nextIndex, "") : "#";
+        }
+        nextChapter.parentNode.hidden = !next && nextIndex < 0;
       }
     }
 
@@ -973,10 +1059,6 @@
         }
       }
       if (chapterHeading) chapterHeading.textContent = meta.title;
-      if (progressBadge) {
-        progressBadge.textContent =
-          String(index + 1) + " / " + String(chapterCount);
-      }
       updateChapterLinks(index);
       markActiveTOC(index, currentFragment);
       localStorage.setItem(
@@ -1189,12 +1271,12 @@
         case "ArrowRight":
         case "l":
           event.preventDefault();
-          goToChapter(nextIndex);
+          if (!goToAdjacentTOC(1) && nextIndex >= 0) goToChapter(nextIndex);
           break;
         case "ArrowLeft":
         case "h":
           event.preventDefault();
-          goToChapter(prevIndex);
+          if (!goToAdjacentTOC(-1) && prevIndex >= 0) goToChapter(prevIndex);
           break;
         case "Tab":
           event.preventDefault();
@@ -1228,9 +1310,9 @@
         "wheel",
         function (event) {
           if (!event.deltaY) return;
+          if (!paginated) return;
           event.preventDefault();
-          if (paginated) return;
-          win.scrollBy({ top: event.deltaY });
+          turnPage(event.deltaY > 0 ? 1 : -1);
         },
         { passive: false },
       );
@@ -1776,65 +1858,10 @@
       doc.addEventListener("mouseleave", clearNavHover);
     }
 
-    function updateReaderProgress() {
-      if (!chapterProgressFill || !bookProgressFill) return;
-      if (chapterCount <= 0) {
-        chapterProgressFill.style.width = "0%";
-        bookProgressFill.style.width = "0%";
-        return;
-      }
-      var doc = frame.contentDocument;
-      if (!doc) {
-        chapterProgressFill.style.width = "0%";
-        bookProgressFill.style.width =
-          String(((currentIndex + 1) / chapterCount) * 100) + "%";
-        return;
-      }
-      var win = doc.defaultView;
-      var docEl = doc.documentElement;
-      var bodyEl = doc.body;
-      var scrollable;
-      var scrolled;
-      if (frameIsPaginated(doc)) {
-        var pageScroller = paginatedScroller(doc);
-        scrolled = (pageScroller && pageScroller.scrollLeft) || 0;
-        scrollable = paginatedMaxLeft(doc);
-      } else {
-        scrolled =
-          (win && (win.scrollY || win.pageYOffset)) ||
-          (docEl && docEl.scrollTop) ||
-          (bodyEl && bodyEl.scrollTop) ||
-          0;
-        var scrollHeight = Math.max(
-          (docEl && docEl.scrollHeight) || 0,
-          (bodyEl && bodyEl.scrollHeight) || 0,
-          (doc.scrollingElement && doc.scrollingElement.scrollHeight) || 0,
-        );
-        scrollable = Math.max(
-          scrollHeight -
-            ((win && win.innerHeight) ||
-              (docEl && docEl.clientHeight) ||
-              (bodyEl && bodyEl.clientHeight) ||
-              0),
-          0,
-        );
-      }
-      var chapterFraction =
-        scrollable > 0 ? Math.min(Math.max(scrolled / scrollable, 0), 1) : 1;
-      var chapterProgress = chapterFraction * 100;
-      var bookProgress =
-        ((currentIndex + chapterFraction) / chapterCount) * 100;
-      chapterProgressFill.style.width =
-        String(Math.min(Math.max(chapterProgress, 0), 100)) + "%";
-      bookProgressFill.style.width =
-        String(Math.min(Math.max(bookProgress, 0), 100)) + "%";
-    }
-
-    function scheduleReaderProgress() {
-      if (progressFrame) return;
-      progressFrame = requestAnimationFrame(function () {
-        progressFrame = 0;
-        updateReaderProgress();
+    function scheduleFrameScroll() {
+      if (scrollFrame) return;
+      scrollFrame = requestAnimationFrame(function () {
+        scrollFrame = 0;
         updateActiveTOCFromFrame();
       });
     }
@@ -1845,16 +1872,15 @@
       if (!doc) return;
       var win = doc.defaultView;
       if (!win) return;
-      win.addEventListener("scroll", scheduleReaderProgress, {
+      win.addEventListener("scroll", scheduleFrameScroll, {
         passive: true,
         capture: true,
       });
-      win.addEventListener("resize", scheduleReaderProgress);
+      win.addEventListener("resize", scheduleFrameScroll);
       win.addEventListener("resize", function () {
         if (paginated) requestApplyTheme();
       });
       frameScrollBound = true;
-      updateReaderProgress();
       updateActiveTOCFromFrame();
     }
 
@@ -1901,7 +1927,6 @@
           }
         });
       });
-      setTimeout(updateReaderProgress, Settings.readerProgressDelay);
     }
 
     function bindSlider(
