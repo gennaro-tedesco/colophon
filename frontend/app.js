@@ -936,6 +936,12 @@
         });
     });
 
+  document
+    .getElementById("sidebar-logo")
+    .addEventListener("click", function () {
+      document.getElementById("app-rescan-btn").click();
+    });
+
   appOpenReaderRow.addEventListener("click", function () {
     appMenuToggle.classList.remove("open");
     appMenuPanel.classList.remove("open");
